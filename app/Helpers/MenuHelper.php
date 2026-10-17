@@ -15,6 +15,11 @@ class MenuHelper
                 ],
             ],
             [
+                'icon' => 'ecommerce',
+                'name' => 'Transaksi Penjualan',
+                'path' => '/sales',
+            ],
+            [
                 'icon' => 'calendar',
                 'name' => 'Calendar',
                 'path' => '/calendar',

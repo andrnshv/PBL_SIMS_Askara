@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\SalesController;
 
 // Locale Switch Route
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -87,6 +88,9 @@ Route::get('/videos', function () {
     return view('pages.ui-elements.videos', ['title' => 'Videos']);
 })->name('videos');
 
+// Sales transaction
+Route::get('/sales', [SalesController::class, 'index'])
+    ->name('sales.index');
 
 
 
