@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ReorderController;
 
 // Locale Switch Route
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -107,3 +108,12 @@ Route::post('/products', [ProductController::class, 'store'])
 
 Route::get('/sales/history', [SalesController::class, 'history'])
     ->name('sales.history');
+
+Route::get('/sales/history', [SalesController::class, 'history'])
+    ->name('sales.history');
+
+Route::get('/reorder', [ReorderController::class, 'index'])
+    ->name('reorder.index');
+
+Route::put('/reorder', [ReorderController::class, 'update'])
+    ->name('reorder.update');
