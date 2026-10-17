@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\ProductController;
 
 // Locale Switch Route
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -87,26 +88,19 @@ Route::get('/videos', function () {
 })->name('videos');
 
 // Sales transaction
+
+ // Sales transaction
 Route::get('/sales', [SalesController::class, 'index'])
     ->name('sales.index');
 
+Route::post('/sales', [SalesController::class, 'store'])
+    ->name('sales.store');
 
+Route::get('/products', [ProductController::class, 'index'])
+    ->name('products.index');
 
+Route::get('/products/create', [ProductController::class, 'create'])
+    ->name('products.create');
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Route::post('/products', [ProductController::class, 'store'])
+    ->name('products.store');
