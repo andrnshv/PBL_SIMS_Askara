@@ -20,6 +20,11 @@ class MenuHelper
                 'path' => '/sales',
             ],
             [
+                'icon' => 'ecommerce',
+                'name' => 'Daftar Produk',
+                'path' => '/products',
+            ],
+            [
                 'icon' => 'calendar',
                 'name' => 'Calendar',
                 'path' => '/calendar',
