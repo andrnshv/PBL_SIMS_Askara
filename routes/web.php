@@ -9,9 +9,7 @@ Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('local
 use App\Http\Controllers\DashboardController;
 
 // dashboard pages
-Route::get('/', function () {
-    return view('pages.dashboard.ecommerce', ['title' => 'E-commerce Dashboard']);
-})->name('dashboard');
+Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 // calender pages
 Route::get('/calendar', function () {
