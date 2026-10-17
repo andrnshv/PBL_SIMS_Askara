@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -15,7 +17,7 @@ class ProductController extends Controller
             $perPage = 10;
         }
 
-        $search = trim($request->input('q', ''));
+        $search = trim((string) $request->input('q', ''));
         $category = $request->input('category');
 
         $query = Product::query()
@@ -27,10 +29,10 @@ class ProductController extends Controller
 
         if ($search !== '') {
             $query->where(function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
+                $query->where('name', 'ilike', "%{$search}%")
                     ->orWhereHas('variants', function ($variants) use ($search) {
-                        $variants->where('name', 'like', "%{$search}%")
-                            ->orWhere('sku', 'like', "%{$search}%");
+                        $variants->where('name', 'ilike', "%{$search}%")
+                            ->orWhere('sku', 'ilike', "%{$search}%");
                     });
             });
         }
@@ -65,28 +67,40 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:active,inactive'],
-        ], [
-            'name.required' => 'Nama produk wajib diisi.',
-            'name.max' => 'Nama produk maksimal 255 karakter.',
-            'category.max' => 'Kategori maksimal 255 karakter.',
-            'status.required' => 'Status produk wajib dipilih.',
-            'status.in' => 'Status produk tidak valid.',
+        $request->merge([
+            'name'     => trim((string) $request->input('name')),
+            'category' => trim((string) $request->input('category')) ?: null,
         ]);
 
-        $validated['created_by'] = $request->user()->id;
+        $validated = $request->validate([
+            'name'        => ['required', 'string', 'max:255', Rule::unique('products', 'name')],
+            'category'    => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status'      => ['required', Rule::in(['active', 'inactive'])],
+        ], [
+            'name.required'   => 'Nama produk wajib diisi.',
+            'name.max'        => 'Nama produk maksimal 255 karakter.',
+            'name.unique'     => 'Nama produk sudah terdaftar.',
+            'category.max'    => 'Kategori maksimal 255 karakter.',
+            'status.required' => 'Status produk wajib dipilih.',
+            'status.in'       => 'Status produk tidak valid.',
+        ]);
+
+        // Sementara: belum ada login, pakai user pertama di tabel users.
+        // Saat auth sudah jadi, ganti dengan $request->user()->id
+        $validated['created_by'] = $request->user()?->id
+            ?? User::query()->value('id');
+
+        if (! $validated['created_by']) {
+            return back()
+                ->withInput()
+                ->withErrors(['name' => 'Belum ada data user. Buat user terlebih dahulu.']);
+        }
 
         $product = Product::create($validated);
 
         return redirect()
             ->route('products.index')
-            ->with(
-                'success',
-                'Produk "' . $product->name . '" berhasil ditambahkan.'
-            );
+            ->with('success', 'Produk "' . $product->name . '" berhasil ditambahkan.');
     }
 }
