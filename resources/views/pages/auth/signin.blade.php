@@ -142,14 +142,23 @@
 
             <div class="bg-brand-950 relative hidden h-full w-full items-center lg:grid lg:w-1/2 dark:bg-white/5">
                 <div class="z-1 flex items-center justify-center">
-                    <!-- ===== Common Grid Shape Start ===== -->
                     <x-common.common-grid-shape/>
+
                     <div class="flex max-w-xs flex-col items-center">
-                        <a href="/" class="mb-4 block">
-                            <img src="./images/logo/auth-logo.svg" alt="Logo" />
+                        <a href="/" class="mb-2 block">
+                            <img
+                                src="{{ asset('images/assets/logo-askara.png') }}"
+                                alt="Logo PT Askara Mulia Sejahtera"
+                                class="h-56 w-auto object-contain"
+                            />
                         </a>
-                        <p class="text-center text-gray-400 dark:text-white/60">
-                            Free and Open-Source Tailwind CSS Admin Dashboard Template
+
+                        <h2 class="text-center text-xl font-semibold text-white">
+                            Admin PT Askara Mulia Sejahtera
+                        </h2>
+
+                        <p class="mt-1 text-center text-sm text-gray-400 dark:text-white/60">
+                            Sistem Informasi Manajemen Stok dan Penjualan
                         </p>
                     </div>
                 </div>
