@@ -41,5 +41,4 @@ export const initChartSales = () => {
     chart.render();
     return chart;
 };
-
 export default initChartSales;
