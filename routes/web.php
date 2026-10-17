@@ -107,4 +107,3 @@ Route::post('/products', [ProductController::class, 'store'])
 
 Route::get('/sales/history', [SalesController::class, 'history'])
     ->name('sales.history');
-
