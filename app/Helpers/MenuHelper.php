@@ -21,6 +21,11 @@ class MenuHelper
             ],
             [
                 'icon' => 'ecommerce',
+                'name' => 'Riwayat Penjualan',
+                'path' => '/sales/history',
+            ],
+            [
+                'icon' => 'ecommerce',
                 'name' => 'Daftar Produk',
                 'path' => '/products',
             ],

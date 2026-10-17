@@ -104,3 +104,6 @@ Route::get('/products/create', [ProductController::class, 'create'])
 
 Route::post('/products', [ProductController::class, 'store'])
     ->name('products.store');
+
+Route::get('/sales/history', [SalesController::class, 'history'])
+    ->name('sales.history');
