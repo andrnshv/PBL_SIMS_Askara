@@ -125,25 +125,61 @@
 
             {{-- Kategori --}}
             <div>
-                <label
-                    for="category"
-                    class="mb-2 block text-sm font-semibold text-slate-700"
-                >
+                <label for="category" class="mb-2 block text-sm font-semibold text-slate-700">
                     Kategori
                 </label>
 
+                <div
+                x-data="{
+                    open: false,
+                    q: @js(old('category', '')),
+                    options: @js($categories),
+                    picked: @js(in_array(old('category'), $categories->all(), true)),
+                    get filtered() {
+                        const q = this.picked ? '' : this.q.toLowerCase();
+                        return this.options.filter(o => o.toLowerCase().includes(q));
+                    },
+                    get isNew() {
+                        return !this.picked && this.q.trim() !== '' &&
+                            !this.options.some(o => o.toLowerCase() === this.q.trim().toLowerCase());
+                    },
+                    choose(o) { this.q = o; this.picked = true; this.open = false; },
+                    reset(el) { if (this.picked) { this.q = ''; el.value = ''; this.picked = false; } }
+                }"
+                @click.outside="open = false"
+                class="relative"
+            >
                 <input
                     type="text"
                     id="category"
                     name="category"
-                    value="{{ old('category') }}"
-                    placeholder="Contoh: Minuman"
+                    x-model="q"
+                    @focus="open = true"
+                    @input="open = true"
+                    @keydown.escape="open = false"
+                    @keydown="if ($event.key.length === 1 && !$event.ctrlKey && !$event.metaKey && !$event.altKey || ['Backspace','Delete'].includes($event.key)) reset($el)"
+                    @paste="reset($el)"
+                    autocomplete="off"
                     maxlength="255"
+                    placeholder="Pilih kategori atau ketik kategori baru"
                     class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/15 @error('category') border-red-400 @enderror"
                 >
 
+                <ul x-show="open" x-cloak
+                    class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                    <template x-for="o in filtered" :key="o">
+                        <li @mousedown.prevent="choose(o)" x-text="o"
+                            class="cursor-pointer px-3.5 py-2.5 text-slate-700 hover:bg-blue-50"></li>
+                    </template>
+
+                    <li x-show="isNew" @mousedown.prevent="open = false"
+                        x-text="'+ Buat kategori baru: ' + q"
+                        class="cursor-pointer border-t border-slate-100 px-3.5 py-2.5 font-medium text-[#4C8DF6] hover:bg-blue-50"></li>
+                </ul>
+            </div>
+
                 <p class="mt-1.5 text-xs text-slate-400">
-                    Opsional. Gunakan penamaan kategori yang konsisten.
+                    Pilih kategori yang sudah ada atau ketik untuk membuat kategori baru.
                 </p>
 
                 @error('category')
@@ -169,7 +205,7 @@
                 >{{ old('description') }}</textarea>
 
                 <p class="mt-1.5 text-xs text-slate-400">
-                    Opsional. Deskripsi dapat digunakan untuk menjelaskan karakteristik produk.
+                    Deskripsi dapat digunakan untuk menjelaskan karakteristik produk.
                 </p>
 
                 @error('description')

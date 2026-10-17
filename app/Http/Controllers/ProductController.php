@@ -62,14 +62,30 @@ class ProductController extends Controller
 
     public function create()
     {
-        return view('pages.products.create');
+        $categories = Product::query()
+            ->whereNotNull('category')
+            ->where('category', '!=', '')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category');
+
+        return view('pages.products.create', compact('categories'));
     }
 
     public function store(Request $request)
     {
+        $category = trim((string) $request->input('category')) ?: null;
+
+        if ($category) {
+            // pakai penulisan kategori yang sudah ada jika hanya beda huruf besar/kecil
+            $category = Product::query()
+                ->whereRaw('lower(category) = ?', [mb_strtolower($category)])
+                ->value('category') ?? $category;
+        }
+
         $request->merge([
             'name'     => trim((string) $request->input('name')),
-            'category' => trim((string) $request->input('category')) ?: null,
+            'category' => $category,
         ]);
 
         $validated = $request->validate([
