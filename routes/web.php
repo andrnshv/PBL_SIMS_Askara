@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductVariantController;
 use App\Http\Controllers\ReorderController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockInController;
@@ -100,17 +101,18 @@ Route::get('/sales', [SalesController::class, 'index'])
 Route::post('/sales', [SalesController::class, 'store'])
     ->name('sales.store');
 
+// Produk induk
 Route::get('/products', [ProductController::class, 'index'])
     ->name('products.index');
 
 Route::get('/products/create', [ProductController::class, 'create'])
     ->name('products.create');
 
-Route::get('/products/{id}/variants/{variantId}/edit', [ProductController::class, 'editVariant'])
-    ->name('products.variants.edit');
+Route::post('/products', [ProductController::class, 'store'])
+    ->name('products.store');
 
-Route::put('/products/{id}/variants/{variantId}', [ProductController::class, 'updateVariant'])
-    ->name('products.variants.update');
+Route::get('/products/{id}', [ProductController::class, 'show'])
+    ->name('products.show');
 
 Route::get('/products/{id}/edit', [ProductController::class, 'edit'])
     ->name('products.edit');
@@ -121,19 +123,18 @@ Route::put('/products/{id}', [ProductController::class, 'update'])
 Route::delete('/products/{id}', [ProductController::class, 'destroy'])
     ->name('products.destroy');
 
-Route::post('/products', [ProductController::class, 'store'])
-    ->name('products.store');
-
-// Tambah varian produk
-Route::get('/products/{id}/variants/create', [ProductController::class, 'createVariant'])
+// Varian produk
+Route::get('/products/{id}/variants/create', [ProductVariantController::class, 'create'])
     ->name('products.variants.create');
 
-Route::post('/products/{id}/variants', [ProductController::class, 'storeVariant'])
+Route::post('/products/{id}/variants', [ProductVariantController::class, 'store'])
     ->name('products.variants.store');
 
-// Halaman lihat detail produk
-Route::get('/products/{id}', [ProductController::class, 'show'])
-    ->name('products.show');
+Route::get('/products/{id}/variants/{variantId}/edit', [ProductVariantController::class, 'edit'])
+    ->name('products.variants.edit');
+
+Route::put('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'update'])
+    ->name('products.variants.update');
 
 Route::get('/sales/history', [SalesController::class, 'history'])
     ->name('sales.history');
