@@ -153,6 +153,33 @@ class ProductVariantController extends Controller
             ->with('success', 'Varian produk berhasil diperbarui.');
     }
 
+        public function destroy($id, $variantId)
+    {
+        $variant = ProductVariant::query()
+            ->where('id', $variantId)
+            ->where('product_id', $id)
+            ->firstOrFail();
+
+        if ($variant->hasTransactionHistory()) {
+            return redirect()
+                ->route('products.show', $id)
+                ->with(
+                    'error',
+                    'Varian "' . $variant->name . '" tidak dapat dihapus karena sudah memiliki stok atau riwayat transaksi. Ubah statusnya menjadi Tidak Aktif lewat menu Edit.'
+                );
+        }
+
+        $name = $variant->name;
+
+        DB::transaction(function () use ($variant) {
+            $variant->delete();
+        });
+
+        return redirect()
+            ->route('products.show', $id)
+            ->with('success', 'Varian "' . $name . '" berhasil dihapus.');
+    }
+
     // Daftar satuan yang sudah dipakai di database
     private function unitOptions()
     {

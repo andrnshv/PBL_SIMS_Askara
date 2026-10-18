@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class ProductVariant extends Model
 {
@@ -24,4 +25,18 @@ class ProductVariant extends Model
         return $this->belongsTo(Product::class);
     }
 
+    /**
+     * Apakah varian ini sudah punya stok atau riwayat transaksi.
+     * Jika ya, varian tidak boleh dihapus.
+     */
+    public function hasTransactionHistory(): bool
+    {
+        return (int) $this->current_stock > 0
+            || DB::table('stock_movements')->where('variant_id', $this->id)->exists()
+            || DB::table('sale_items')->where('variant_id', $this->id)->exists()
+            || DB::table('purchase_order_items')->where('variant_id', $this->id)->exists()
+            || DB::table('stock_opname_items')->where('variant_id', $this->id)->exists()
+            || DB::table('product_merge_logs')->where('target_variant_id', $this->id)->exists()
+            || DB::table('product_variants')->where('merged_into_variant_id', $this->id)->exists();
+    }
 }
