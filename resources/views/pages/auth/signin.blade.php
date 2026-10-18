@@ -140,29 +140,79 @@
                 </div>
             </div>
 
-            <div class="bg-brand-950 relative hidden h-full w-full items-center lg:grid lg:w-1/2 dark:bg-white/5">
-                <div class="z-1 flex items-center justify-center">
-                    <x-common.common-grid-shape/>
+        <!-- Right Branding Panel -->
+            <div class="relative hidden min-h-screen w-full overflow-hidden bg-brand-950 lg:flex lg:w-1/2 lg:items-center lg:justify-center">
 
-                    <div class="flex max-w-xs flex-col items-center">
-                        <a href="/" class="mb-2 block">
-                            <img
-                                src="{{ asset('images/assets/logo-askara.png') }}"
-                                alt="Logo PT Askara Mulia Sejahtera"
-                                class="h-56 w-auto object-contain"
-                            />
-                        </a>
+                <!-- Background decoration -->
+                <div class="pointer-events-none absolute -right-28 -top-28 h-96 w-96 rounded-full border border-white/[0.08]"></div>
+                <div class="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full border border-white/[0.06]"></div>
+                <div class="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-brand-500/[0.08] blur-3xl"></div>
 
-                        <h2 class="text-center text-xl font-semibold text-white">
-                            Admin PT Askara Mulia Sejahtera
-                        </h2>
+                <!-- Subtle dot pattern -->
+                <div class="pointer-events-none absolute inset-0 opacity-[0.06]"
+                    style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 26px 26px;">
+                </div>
 
-                        <p class="mt-1 text-center text-sm text-gray-400 dark:text-white/60">
-                            Sistem Informasi Manajemen Stok dan Penjualan
-                        </p>
+                <!-- Soft center glow -->
+                <div class="pointer-events-none absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/[0.025] blur-3xl"></div>
+
+                <!-- Branding content -->
+                <div class="relative z-10 flex w-full max-w-lg flex-col items-center px-10 py-12 text-center">
+
+                    <!-- Logo -->
+                    <div class="mb-7 flex h-40 w-40 items-center justify-center rounded-[2rem] border border-white/20 bg-white p-5 shadow-2xl shadow-black/20 ring-1 ring-white/10">
+                        <img
+                            src="{{ asset('images/assets/logo-askara.png') }}"
+                            alt="Logo PT Askara Mulia Sejahtera"
+                            class="h-full w-full object-contain"
+                        />
                     </div>
+
+                    <!-- Brand label -->
+                    <div class="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] px-4 py-2">
+                        <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
+                        <span class="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/75">
+                            Integrated Business System
+                        </span>
+                    </div>
+
+                    <!-- Company name -->
+                    <h2 class="text-2xl font-bold leading-relaxed tracking-wide text-white xl:text-3xl">
+                        PT Askara Mulia Sejahtera
+                    </h2>
+
+                    <!-- Accent divider -->
+                    <div class="my-5 flex items-center gap-2">
+                        <span class="h-px w-8 bg-white/20"></span>
+                        <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
+                        <span class="h-px w-8 bg-white/20"></span>
+                    </div>
+
+                    <!-- System description -->
+                    <p class="max-w-sm text-sm leading-7 text-white/70">
+                        Sistem Informasi Manajemen Stok dan Penjualan
+                    </p>
+
+                    <!-- Supporting text -->
+                    <p class="mt-5 max-w-xs text-xs leading-6 text-white/45">
+                        Manage stock, products, and sales in one place.
+                    </p>
+
+                    <!-- Minimal bottom accent -->
+                    <div class="mt-9 flex items-center gap-3">
+                        <span class="h-1 w-8 rounded-full bg-brand-500"></span>
+                        <span class="h-1 w-2 rounded-full bg-white/25"></span>
+                        <span class="h-1 w-2 rounded-full bg-white/15"></span>
+                    </div>
+
+                    <!-- Footer -->
+                    <p class="mt-8 text-[10px] tracking-[0.18em] text-white/35">
+                        © {{ date('Y') }} PT Askara Mulia Sejahtera
+                    </p>
+
                 </div>
             </div>
+
             <!-- Toggler -->
             <div class="fixed right-6 bottom-6 z-50">
                 <button

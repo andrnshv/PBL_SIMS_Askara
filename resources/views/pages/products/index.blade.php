@@ -245,7 +245,7 @@
                             {{-- Aksi --}}
                             <td class="px-5 py-4">
                                 <a
-                                    href="#"
+                                    href="{{ route('products.show', $p->id) }}"
                                     class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#4C8DF6] transition hover:text-blue-700"
                                 >
                                     Lihat Detail

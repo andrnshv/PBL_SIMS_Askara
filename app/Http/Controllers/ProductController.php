@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
@@ -119,4 +120,227 @@ class ProductController extends Controller
             ->route('products.index')
             ->with('success', 'Produk "' . $product->name . '" berhasil ditambahkan.');
     }
+
+    public function show($id)
+    {
+        $product = DB::table('products as p')
+            ->leftJoin('users as u', 'u.id', '=', 'p.created_by')
+            ->where('p.id', $id)
+            ->select(
+                'p.*',
+                'u.name as creator_name'
+            )
+            ->first();
+
+        abort_if(!$product, 404);
+
+        $variants = DB::table('product_variants')
+            ->where('product_id', $id)
+            ->orderBy('name')
+            ->get();
+
+        return view('pages.products.show', compact(
+            'product',
+            'variants'
+        ));
+    }
+
+    public function createVariant($id)
+    {
+        $product = Product::findOrFail($id);
+
+        return view('pages.products.variants.create', compact('product'));
+    }
+
+    public function storeVariant(Request $request, $id)
+    {
+        $product = Product::findOrFail($id);
+
+        $validated = $request->validate([
+            'sku' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('product_variants', 'sku'),
+            ],
+            'name' => ['required', 'string', 'max:255'],
+            'unit' => ['required', 'string', 'max:50'],
+            'selling_price' => ['required', 'numeric', 'min:0'],
+            'reorder_point' => ['required', 'integer', 'min:0'],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+        ], [
+            'sku.required' => 'SKU wajib diisi.',
+            'sku.unique' => 'SKU sudah digunakan oleh varian lain.',
+            'name.required' => 'Nama varian wajib diisi.',
+            'unit.required' => 'Satuan wajib diisi.',
+            'selling_price.required' => 'Harga jual wajib diisi.',
+            'selling_price.numeric' => 'Harga jual harus berupa angka.',
+            'selling_price.min' => 'Harga jual tidak boleh negatif.',
+            'reorder_point.required' => 'Reorder point wajib diisi.',
+            'reorder_point.integer' => 'Reorder point harus berupa bilangan bulat.',
+            'reorder_point.min' => 'Reorder point tidak boleh negatif.',
+            'status.required' => 'Status varian wajib dipilih.',
+            'status.in' => 'Status varian tidak valid.',
+        ]);
+
+        $now = now();
+
+        DB::table('product_variants')->insert([
+            'product_id' => $product->id,
+            'sku' => trim($validated['sku']),
+            'name' => trim($validated['name']),
+            'unit' => trim($validated['unit']),
+            'selling_price' => $validated['selling_price'],
+            'current_stock' => 0,
+            'reorder_point' => $validated['reorder_point'],
+            'status' => $validated['status'],
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return redirect()
+            ->route('products.show', $product->id)
+            ->with('success', 'Varian "' . $validated['name'] . '" berhasil ditambahkan.');
+    }
+
+    public function editVariant($id, $variantId)
+    {
+        $product = DB::table('products')
+            ->where('id', $id)
+            ->first();
+
+        abort_if(!$product, 404);
+
+        $variant = DB::table('product_variants')
+            ->where('id', $variantId)
+            ->where('product_id', $id)
+            ->first();
+
+        abort_if(!$variant, 404);
+
+        // Varian yang sudah digabung tidak dapat diedit.
+        abort_if($variant->status === 'merged', 404);
+
+        return view('pages.products.variants.edit', [
+            'product' => $product,
+            'variant' => $variant,
+        ]);
+    }
+
+    public function updateVariant(Request $request, $id, $variantId)
+    {
+        // Pastikan produk induk tersedia.
+        $product = DB::table('products')
+            ->where('id', $id)
+            ->first();
+
+        abort_if(!$product, 404);
+
+        // Pastikan varian memang milik produk induk tersebut.
+        $variant = DB::table('product_variants')
+            ->where('id', $variantId)
+            ->where('product_id', $id)
+            ->first();
+
+        abort_if(!$variant, 404);
+
+        // Varian yang sudah digabung tidak dapat diedit.
+        abort_if($variant->status === 'merged', 404);
+
+        // Validasi data.
+        $validated = $request->validate([
+            'sku' => [
+                'required',
+                'string',
+                'max:100',
+                \Illuminate\Validation\Rule::unique('product_variants', 'sku')
+                    ->ignore($variantId, 'id'),
+            ],
+            'name' => ['required', 'string', 'max:255'],
+            'unit' => ['required', 'string', 'max:50'],
+            'selling_price' => ['required', 'numeric', 'min:0'],
+            'reorder_point' => ['required', 'integer', 'min:0'],
+            'status' => ['required', \Illuminate\Validation\Rule::in(['active', 'inactive'])],
+        ]);
+
+        // Perbarui data tanpa mengubah current_stock.
+        DB::table('product_variants')
+            ->where('id', $variantId)
+            ->where('product_id', $id)
+            ->update([
+                'sku' => $validated['sku'],
+                'name' => $validated['name'],
+                'unit' => $validated['unit'],
+                'selling_price' => $validated['selling_price'],
+                'reorder_point' => $validated['reorder_point'],
+                'status' => $validated['status'],
+                'updated_at' => now(),
+            ]);
+
+        return redirect()
+            ->route('products.show', $id)
+            ->with('success', 'Varian produk berhasil diperbarui.');
+    }
+
+    public function edit($id)
+    {
+        $product = Product::findOrFail($id);
+
+        $categories = Product::query()
+            ->whereNotNull('category')
+            ->where('category', '!=', '')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category');
+
+        return view('pages.products.edit', compact(
+            'product',
+            'categories'
+        ));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $product = Product::findOrFail($id);
+
+        $category = trim((string) $request->input('category')) ?: null;
+
+        if ($category) {
+            $category = Product::query()
+                ->whereRaw('lower(category) = ?', [mb_strtolower($category)])
+                ->value('category') ?? $category;
+        }
+
+        $request->merge([
+            'name' => trim((string) $request->input('name')),
+            'category' => $category,
+        ]);
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('products', 'name')
+                    ->ignore($product->id),
+            ],
+            'category' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status' => ['required', \Illuminate\Validation\Rule::in(['active', 'inactive'])],
+        ], [
+            'name.required' => 'Nama produk wajib diisi.',
+            'name.unique' => 'Nama produk sudah digunakan.',
+            'name.max' => 'Nama produk maksimal 255 karakter.',
+            'category.max' => 'Kategori maksimal 255 karakter.',
+            'status.required' => 'Status produk wajib dipilih.',
+            'status.in' => 'Status produk tidak valid.',
+        ]);
+
+        $product->update($validated);
+
+        return redirect()
+            ->route('products.show', $product->id)
+            ->with('success', 'Produk "' . $product->name . '" berhasil diperbarui.');
+    }
+
 }
