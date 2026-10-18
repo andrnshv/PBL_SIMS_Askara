@@ -136,6 +136,9 @@ Route::get('/products/{id}/variants/{variantId}/edit', [ProductVariantController
 Route::put('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'update'])
     ->name('products.variants.update');
 
+Route::delete('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'destroy'])
+    ->name('products.variants.destroy');
+
 Route::get('/sales/history', [SalesController::class, 'history'])
     ->name('sales.history');
 
