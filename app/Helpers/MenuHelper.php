@@ -35,6 +35,11 @@ class MenuHelper
                 'path' => '/reorder',
             ],
             [
+                'icon' => 'ecommerce',
+                'name' => 'Pembelian',
+                'path' => '/purchase-orders',
+            ],
+            [
                 'icon' => 'calendar',
                 'name' => 'Calendar',
                 'path' => '/calendar',

@@ -7,7 +7,7 @@
 
 <aside
     id="sidebar"
-    class="fixed flex flex-col mt-0 top-0 start-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-white h-screen transition-all duration-300 ease-in-out z-99999 ltr:border-r rtl:border-l border-gray-200 w-[90px] [.sidebar-expanded_&]:min-w-[290px]"
+    class="fixed flex flex-col mt-0 top-0 start-0 bg-[#0B1F3A] border-[#16305A] text-white h-screen transition-all duration-300 ease-in-out z-99999 ltr:border-r rtl:border-l border-gray-200 w-[90px] [.sidebar-expanded_&]:min-w-[290px]"
     x-data="{
         openSubmenus: {},
 
@@ -47,11 +47,16 @@
             src="{{ asset('images/assets/logo-askara.png') }}"
             alt="Logo PT Askara"
             class="mx-auto h-auto w-full max-w-[200px] object-contain"
+            style="filter:
+                drop-shadow(2px 0 0 #fff)
+                drop-shadow(-2px 0 0 #fff)
+                drop-shadow(0 2px 0 #fff)
+                drop-shadow(0 -2px 0 #fff);"
         >
     </div>
 
     {{-- Menu Groups --}}
-    <nav class="mb-6 overflow-y-auto overflow-x-hidden flex-1">
+    <nav class="sidebar-scroll mb-6 overflow-y-auto overflow-x-hidden flex-1">
         @foreach ($menuGroups as $group)
             <div class="mb-6">
                 {{-- Group Title --}}
@@ -159,7 +164,7 @@
     </nav>
 
     {{-- Tagline --}}
-    <p class="mt-auto mb-10 px-5 hidden [.sidebar-expanded_&]:block text-theme-sm leading-snug text-gray-500 dark:text-gray-400">
+    <p class="mt-auto mb-10 px-5 hidden [.sidebar-expanded_&]:block text-theme-sm leading-snug text-gray-300">
         Manage Your Inventory,<br>
         Boost Your Sales,<br>
         Grow Your Business.

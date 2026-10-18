@@ -5,6 +5,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReorderController;
+use App\Http\Controllers\PurchaseOrderController;
 
 // Locale Switch Route
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -143,3 +144,6 @@ Route::get('/reorder', [ReorderController::class, 'index'])
 
 Route::put('/reorder', [ReorderController::class, 'update'])
     ->name('reorder.update');
+
+Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])
+    ->name('purchase-orders.index');
