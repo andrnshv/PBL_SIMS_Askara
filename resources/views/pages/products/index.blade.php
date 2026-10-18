@@ -4,7 +4,10 @@
 @section('title', 'Daftar Produk')
 
 @section('content')
-<div class="min-h-screen bg-[#EEF2FB] px-4 py-6 sm:px-6 lg:px-8">
+<div
+    class="min-h-screen bg-[#EEF2FB] px-4 py-6 sm:px-6 lg:px-8"
+    x-data="{ confirmDelete: false, deleteUrl: '', deleteName: '', deleteVariants: 0 }"
+>
 
     {{-- Header --}}
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -53,6 +56,15 @@
         <div class="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
             <p class="text-sm font-medium text-green-700">
                 {{ session('success') }}
+            </p>
+        </div>
+    @endif
+
+    {{-- Notifikasi gagal --}}
+    @if (session('error'))
+        <div class="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <p class="text-sm font-medium text-red-700">
+                {{ session('error') }}
             </p>
         </div>
     @endif
@@ -242,27 +254,42 @@
                                 </span>
                             </td>
 
-                            {{-- Aksi --}}
                             <td class="px-5 py-4">
-                                <a
-                                    href="{{ route('products.show', $p->id) }}"
-                                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#4C8DF6] transition hover:text-blue-700"
-                                >
-                                    Lihat Detail
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        class="h-3.5 w-3.5"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
+                                <div class="flex items-center gap-4">
+                                    <a
+                                        href="{{ route('products.show', $p->id) }}"
+                                        class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#4C8DF6] transition hover:text-blue-700"
                                     >
-                                        <path d="M7 17 17 7" />
-                                        <path d="M7 7h10v10" />
-                                    </svg>
-                                </a>
+                                        Lihat Detail
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="h-3.5 w-3.5"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <path d="M7 17 17 7" />
+                                            <path d="M7 7h10v10" />
+                                        </svg>
+                                    </a>
+
+                                    <button
+                                        type="button"
+                                        @click="
+                                            deleteUrl = @js(route('products.destroy', $p->id));
+                                            deleteName = @js($p->name);
+                                            deleteVariants = {{ (int) $p->variants_count }};
+                                            confirmDelete = true;
+                                        "
+                                        class="text-xs font-semibold text-red-500 transition hover:text-red-700"
+                                    >
+                                        Hapus
+                                    </button>
+                                </div>
+                            </td>
                             </td>
                         </tr>
                     @empty
@@ -341,5 +368,78 @@
             </div>
         @endif
     </div>
+
+
+{{-- Modal konfirmasi hapus --}}
+<div
+    x-show="confirmDelete"
+    x-cloak
+    x-transition.opacity
+    @keydown.escape.window="confirmDelete = false"
+    @click.self="confirmDelete = false"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="delete-title"
+>
+    <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div class="flex items-start gap-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                </svg>
+            </div>
+
+            <div>
+                <h3 id="delete-title" class="text-base font-bold text-[#0A1E45]">
+                    Hapus produk?
+                </h3>
+
+                <p class="mt-2 text-sm leading-6 text-slate-600">
+                    Produk
+                    <span class="font-semibold text-[#0A1E45]" x-text="deleteName"></span>
+                    <template x-if="deleteVariants > 0">
+                        <span>
+                            beserta <span x-text="deleteVariants"></span> variannya
+                        </span>
+                    </template>
+                    akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                </p>
+            </div>
+        </div>
+
+        <form method="POST" :action="deleteUrl" class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            @csrf
+            @method('DELETE')
+
+            <button
+                type="button"
+                @click="confirmDelete = false"
+                class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+                Batal
+            </button>
+
+            <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            >
+                Ya, Hapus
+            </button>
+        </form>
+    </div>
+</div>
 </div>
 @endsection

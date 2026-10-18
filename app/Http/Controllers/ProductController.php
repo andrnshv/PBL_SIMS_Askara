@@ -312,4 +312,29 @@ class ProductController extends Controller
             ->value('unit') ?? $unit;
     }
 
+        public function destroy($id)
+    {
+        $product = Product::findOrFail($id);
+
+        if ($product->hasTransactionHistory()) {
+            return redirect()
+                ->route('products.index')
+                ->with(
+                    'error',
+                    'Produk "' . $product->name . '" tidak dapat dihapus karena variannya sudah memiliki stok atau riwayat transaksi. Ubah statusnya menjadi Tidak Aktif lewat menu Edit.'
+                );
+        }
+
+        $name = $product->name;
+
+        // Varian ikut terhapus otomatis (cascade di database).
+        DB::transaction(function () use ($product) {
+            $product->delete();
+        });
+
+        return redirect()
+            ->route('products.index')
+            ->with('success', 'Produk "' . $name . '" berhasil dihapus.');
+    }
+
 }
