@@ -93,8 +93,6 @@ Route::get('/videos', function () {
 })->name('videos');
 
 // Sales transaction
-
- // Sales transaction
 Route::get('/sales', [SalesController::class, 'index'])
     ->name('sales.index');
 
@@ -142,35 +140,40 @@ Route::delete('/products/{id}/variants/{variantId}', [ProductVariantController::
 Route::get('/sales/history', [SalesController::class, 'history'])
     ->name('sales.history');
 
-Route::get('/sales/history', [SalesController::class, 'history'])
-    ->name('sales.history');
-
 Route::get('/reorder', [ReorderController::class, 'index'])
     ->name('reorder.index');
 
 Route::put('/reorder', [ReorderController::class, 'update'])
     ->name('reorder.update');
 
-Route::get('/stock', [StockController::class, 'index'])
-    ->name('stock.index');
+// ===== Stok =====
+// Riwayat: tambahkan ?variant=ID untuk riwayat satu varian.
+Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
+Route::get('/stock/history', [StockController::class, 'history'])->name('stock.history');
 
-Route::get('/stock/incoming', [StockInController::class, 'create'])
-    ->name('stock.incoming.create');
+// Stok masuk (dokumen penerimaan). Dari PO: /stock/incoming?po=ID
+Route::get('/stock/incoming', [StockInController::class, 'create'])->name('stock.incoming.create');
+Route::post('/stock/incoming', [StockInController::class, 'store'])->name('stock.store');
+Route::get('/stock/receipts/{id}', [StockInController::class, 'show'])->whereNumber('id')->name('stock.receipts.show');
 
-Route::post('/stock/incoming', [StockInController::class, 'store'])
-    ->name('stock.store');
+// Opname (rute statis /create harus sebelum /{id})
+Route::get('/stock/opname', [StockController::class, 'opnameIndex'])->name('stock.opname');
+Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])->name('stock.opname.create');
+Route::post('/stock/opname', [StockController::class, 'opnameStore'])->name('stock.opname.store');
+Route::get('/stock/opname/{id}', [StockController::class, 'opnameShow'])->whereNumber('id')->name('stock.opname.show');
+Route::get('/stock/opname/{id}/edit', [StockController::class, 'opnameEdit'])->whereNumber('id')->name('stock.opname.edit');
+Route::put('/stock/opname/{id}', [StockController::class, 'opnameUpdate'])->whereNumber('id')->name('stock.opname.update');
+Route::delete('/stock/opname/{id}', [StockController::class, 'opnameDestroy'])->whereNumber('id')->name('stock.opname.destroy');
 
-Route::get('/stock/history', [StockController::class, 'history'])
-    ->name('stock.history');
+// ===== Pembelian =====
+Route::get('/goods-receipts', [StockInController::class, 'index'])->name('goods-receipts.index');
 
-Route::get('/stock/opname', [StockController::class, 'opnameIndex'])
-    ->name('stock.opname');
-
-Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])
-    ->name('stock.opname.create');
-
-Route::post('/stock/opname', [StockController::class, 'opnameStore'])
-    ->name('stock.opname.store');
-
-Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])
-    ->name('purchase-orders.index');
+Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
+Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
+Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
+Route::get('/purchase-orders/{id}', [PurchaseOrderController::class, 'show'])->whereNumber('id')->name('purchase-orders.show');
+Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'])->whereNumber('id')->name('purchase-orders.edit');
+Route::put('/purchase-orders/{id}', [PurchaseOrderController::class, 'update'])->whereNumber('id')->name('purchase-orders.update');
+Route::delete('/purchase-orders/{id}', [PurchaseOrderController::class, 'destroy'])->whereNumber('id')->name('purchase-orders.destroy');
+Route::post('/purchase-orders/{id}/send', [PurchaseOrderController::class, 'send'])->whereNumber('id')->name('purchase-orders.send');
+Route::post('/purchase-orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])->whereNumber('id')->name('purchase-orders.cancel');

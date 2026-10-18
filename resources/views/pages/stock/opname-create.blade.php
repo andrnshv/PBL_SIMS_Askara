@@ -2,8 +2,6 @@
 @extends('layouts.app')
 
 @section('title', 'Form Stok Opname')
-@section('user', 'Staff Gudang')
-@section('role', 'Petugas Gudang')
 
 @section('content')
 @php
@@ -16,11 +14,14 @@
 
 <form
     method="POST"
-    action="{{ route('stock.opname.store') }}"
+    action="{{ isset($opname) && $opname ? route('stock.opname.update', $opname->id) : route('stock.opname.store') }}"
     x-data="opnameForm(@js($variants), @js($initial))"
     class="flex h-full flex-col"
 >
     @csrf
+    @if (isset($opname) && $opname)
+        @method('PUT')
+    @endif
 
     {{-- HEADER --}}
     <header class="border-b border-slate-200 bg-white px-8 py-5">
@@ -479,8 +480,8 @@
             </svg>
 
             <span>
-                Nomor opname dan informasi gudang masih menggunakan data sementara.
-                Draft disimpan di session dan belum menjadi riwayat permanen.
+                Draft tersimpan di database dan dapat dilanjutkan dari daftar opname.
+                Stok baru berubah setelah opname diselesaikan.
             </span>
         </p>
     </main>

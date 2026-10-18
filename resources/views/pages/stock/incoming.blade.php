@@ -2,8 +2,6 @@
 @extends('layouts.app')
 
 @section('title', 'Catat Stok Masuk')
-@section('user', 'Staff Gudang')
-@section('role', 'Petugas Gudang')
 
 @section('content')
 @php
@@ -24,6 +22,9 @@
     class="flex h-full flex-col"
 >
     @csrf
+    @if ($po)
+        <input type="hidden" name="purchase_order_id" value="{{ $po->id }}">
+    @endif
 
     {{-- HEADER --}}
     <header class="border-b border-slate-200 bg-white px-8 py-5">
@@ -103,7 +104,7 @@
                 </div>
 
                 <span class="rounded bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
-                    Belum disimpan
+                    {{ $po ? 'Dari ' . $po->po_number : 'Tanpa PO' }}
                 </span>
             </div>
 
@@ -123,7 +124,7 @@
                     >
 
                     <p class="mt-1 text-[10px] text-slate-400">
-                        Nomor tampilan sementara, belum tersimpan sebagai dokumen.
+                        Nomor final ditetapkan otomatis saat dokumen disimpan.
                     </p>
                 </div>
 
@@ -182,22 +183,23 @@
 
                     <select
                         id="supplier"
-                        name="supplier"
-                        class="{{ $input }} {{ $errors->has('supplier') ? 'border-red-400' : 'border-slate-200' }}"
+                        name="supplier_id"
+                        @disabled((bool) $po)
+                        class="{{ $input }} {{ $errors->has('supplier_id') ? 'border-red-400' : 'border-slate-200' }}"
                     >
                         <option value="">Pilih pemasok</option>
 
-                        @foreach (($suppliers ?? ['PT Sumber Teknik Jaya']) as $s)
+                        @foreach ($suppliers as $s)
                             <option
-                                value="{{ $s }}"
-                                @selected(old('supplier', 'PT Sumber Teknik Jaya') === $s)
+                                value="{{ $s->id }}"
+                                @selected((string) old('supplier_id', $po->supplier_id ?? '') === (string) $s->id)
                             >
-                                {{ $s }}
+                                {{ $s->name }}
                             </option>
                         @endforeach
                     </select>
 
-                    @error('supplier')
+                    @error('supplier_id')
                         <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
@@ -386,7 +388,7 @@
                 @enderror
 
                 <p class="mt-2 text-[10px] text-slate-400">
-                    Catatan belum disimpan sebagai dokumen penerimaan pada skema saat ini.
+                    Catatan disimpan pada dokumen penerimaan.
                 </p>
             </section>
 

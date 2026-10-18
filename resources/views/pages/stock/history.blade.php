@@ -2,8 +2,6 @@
 @extends('layouts.app')
 
 @section('title', 'Riwayat Pergerakan Stok')
-@section('user', 'Staff Gudang')
-@section('role', 'Petugas Gudang')
 
 @section('content')
 <div class="min-h-full bg-[#EEF2FB]">
@@ -85,7 +83,19 @@
                 </div>
 
                 <input type="hidden" name="per_page" value="{{ $perPage }}">
+
+                @if ($variantId)
+                    <input type="hidden" name="variant" value="{{ $variantId }}">
+                @endif
             </form>
+
+            @if ($variantInfo)
+                <p class="mt-4 inline-flex items-center gap-2 rounded bg-blue-50 px-3 py-1.5 text-[11px] text-[#4C8DF6]">
+                    Varian: <span class="font-semibold">{{ $variantInfo }}</span>
+                    <a href="{{ route('stock.history', request()->except(['variant', 'page'])) }}"
+                       class="font-bold hover:underline" aria-label="Hapus filter varian">×</a>
+                </p>
+            @endif
         </section>
 
         <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -148,7 +158,12 @@
                                 </td>
 
                                 <td class="px-3 py-4">
-                                    {{ $m['ref'] }}
+                                    @if ($m['ref_url'])
+                                        <a href="{{ $m['ref_url'] }}"
+                                           class="font-semibold text-[#4C8DF6] hover:underline">{{ $m['ref'] }}</a>
+                                    @else
+                                        {{ $m['ref'] }}
+                                    @endif
                                 </td>
 
                                 <td class="px-5 py-4">

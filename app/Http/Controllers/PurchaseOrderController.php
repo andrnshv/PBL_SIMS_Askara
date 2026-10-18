@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
- * CONTOH controller (hanya membaca data, tidak mengubah database).
- * Tujuannya supaya halaman purchase-orders/index.blade.php mendapat
- * variabel yang dibutuhkan. Silakan serahkan/sesuaikan dengan tim backend.
+ * CRUD Purchase Order.
+ * Mengirim PO TIDAK menambah stok; stok bertambah lewat dokumen penerimaan
+ * (StockInController, ?po=ID) yang juga memperbarui qty_received & status PO.
  */
 class PurchaseOrderController extends Controller
 {
@@ -35,14 +37,15 @@ class PurchaseOrderController extends Controller
                 'po.po_number',
                 'po.order_date',
                 'po.status',
+                'po.expected_date',
                 's.name as supplier',
             ]);
 
         // Pencarian: nomor PO atau nama supplier.
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
-                $q->where('po.po_number', 'like', "%{$search}%")
-                  ->orWhere('s.name', 'like', "%{$search}%");
+                $q->where('po.po_number', 'ilike', "%{$search}%")
+                  ->orWhere('s.name', 'ilike', "%{$search}%");
             });
         }
 
@@ -94,9 +97,7 @@ class PurchaseOrderController extends Controller
                 'supplier' => $po->supplier,
                 'variants' => (int) ($items->variants ?? 0),
                 'total'    => (float) ($items->total ?? 0),
-                // Kolom estimasi tiba belum ada di tabel purchase_orders.
-                // Sementara null -> Blade menampilkan "—".
-                'eta'      => null,
+                'eta'      => $po->expected_date ? Carbon::parse($po->expected_date) : null,
                 'status'   => $po->status,
             ];
         });
@@ -130,5 +131,332 @@ class PurchaseOrderController extends Controller
             'suppliers' => $suppliers,
             'perPage'   => $perPage,
         ]);
+    }
+
+    /* ------------------------------------------------------------------
+     |  Buat / ubah draft
+     ------------------------------------------------------------------ */
+
+    public function create()
+    {
+        return view('pages.purchase-orders.form', $this->formData(null));
+    }
+
+    public function store(Request $request)
+    {
+        return $this->save($request, null);
+    }
+
+    public function edit(int $id)
+    {
+        $po = DB::table('purchase_orders')->where('id', $id)->first();
+        abort_if(! $po, 404);
+
+        if ($po->status !== 'draft') {
+            return redirect()
+                ->route('purchase-orders.show', $id)
+                ->with('error', 'Hanya PO berstatus Draft yang dapat diubah.');
+        }
+
+        return view('pages.purchase-orders.form', $this->formData($po));
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $po = DB::table('purchase_orders')->where('id', $id)->first();
+        abort_if(! $po, 404);
+
+        if ($po->status !== 'draft') {
+            return redirect()
+                ->route('purchase-orders.show', $id)
+                ->with('error', 'Hanya PO berstatus Draft yang dapat diubah.');
+        }
+
+        return $this->save($request, $id);
+    }
+
+    /* ------------------------------------------------------------------
+     |  Detail & perubahan status
+     ------------------------------------------------------------------ */
+
+    public function show(int $id)
+    {
+        $po = DB::table('purchase_orders as po')
+            ->join('suppliers as s', 's.id', '=', 'po.supplier_id')
+            ->join('users as u', 'u.id', '=', 'po.created_by')
+            ->where('po.id', $id)
+            ->first(['po.*', 's.name as supplier', 's.phone as supplier_phone', 'u.name as creator']);
+
+        abort_if(! $po, 404);
+
+        $items = DB::table('purchase_order_items as i')
+            ->join('product_variants as v', 'v.id', '=', 'i.variant_id')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('i.purchase_order_id', $id)
+            ->orderBy('p.name')
+            ->orderBy('v.name')
+            ->get([
+                'p.name as product_name',
+                'v.name as variant_name',
+                'v.sku',
+                'v.unit',
+                'i.qty_ordered',
+                'i.qty_received',
+                'i.unit_cost',
+            ]);
+
+        $receipts = DB::table('stock_receipts')
+            ->where('purchase_order_id', $id)
+            ->orderByDesc('receipt_date')
+            ->orderByDesc('id')
+            ->get(['id', 'receipt_no', 'receipt_date', 'delivery_ref']);
+
+        return view('pages.purchase-orders.show', [
+            'po' => $po,
+            'items' => $items,
+            'receipts' => $receipts,
+            'total' => $items->sum(fn ($i) => $i->qty_ordered * $i->unit_cost),
+        ]);
+    }
+
+    /** Draft -> ordered (dikirim ke supplier). Tidak menambah stok. */
+    public function send(int $id)
+    {
+        $result = DB::transaction(function () use ($id) {
+            $po = DB::table('purchase_orders')->where('id', $id)->lockForUpdate()->first();
+            abort_if(! $po, 404);
+
+            if ($po->status !== 'draft') {
+                return 'PO ini sudah bukan draft.';
+            }
+
+            if (! DB::table('purchase_order_items')->where('purchase_order_id', $id)->exists()) {
+                return 'PO belum memiliki varian.';
+            }
+
+            DB::table('purchase_orders')->where('id', $id)->update([
+                'status' => 'ordered',
+                'updated_at' => now(),
+            ]);
+
+            return null;
+        });
+
+        return redirect()
+            ->route('purchase-orders.show', $id)
+            ->with($result ? 'error' : 'success', $result ?? 'PO ditandai sebagai Dikirim.');
+    }
+
+    /** Batalkan PO yang belum ada barang diterima. */
+    public function cancel(int $id)
+    {
+        $result = DB::transaction(function () use ($id) {
+            $po = DB::table('purchase_orders')->where('id', $id)->lockForUpdate()->first();
+            abort_if(! $po, 404);
+
+            if (! in_array($po->status, ['draft', 'ordered'], true)) {
+                return 'PO dengan status ini tidak dapat dibatalkan.';
+            }
+
+            $received = DB::table('purchase_order_items')
+                ->where('purchase_order_id', $id)
+                ->where('qty_received', '>', 0)
+                ->exists();
+
+            if ($received) {
+                return 'PO sudah memiliki penerimaan barang dan tidak dapat dibatalkan.';
+            }
+
+            DB::table('purchase_orders')->where('id', $id)->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+
+            return null;
+        });
+
+        return redirect()
+            ->route('purchase-orders.show', $id)
+            ->with($result ? 'error' : 'success', $result ?? 'PO dibatalkan. Stok tidak terpengaruh.');
+    }
+
+    /** Hapus permanen hanya untuk draft. */
+    public function destroy(int $id)
+    {
+        $po = DB::table('purchase_orders')->where('id', $id)->first();
+        abort_if(! $po, 404);
+
+        if ($po->status !== 'draft') {
+            return redirect()
+                ->route('purchase-orders.show', $id)
+                ->with('error', 'Hanya PO berstatus Draft yang boleh dihapus. Gunakan Batalkan untuk PO lain.');
+        }
+
+        // purchase_order_items ikut terhapus lewat cascadeOnDelete.
+        DB::table('purchase_orders')->where('id', $id)->delete();
+
+        return redirect()
+            ->route('purchase-orders.index')
+            ->with('success', "Draft {$po->po_number} dihapus.");
+    }
+
+    /* ------------------------------------------------------------------
+     |  Internal
+     ------------------------------------------------------------------ */
+
+    private function save(Request $request, ?int $poId)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:draft,send'],
+            'supplier_id' => [
+                'required',
+                'integer',
+                Rule::exists('suppliers', 'id')->where('is_active', true),
+            ],
+            'order_date' => ['required', 'date'],
+            'expected_date' => ['nullable', 'date', 'after_or_equal:order_date'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.variant_id' => ['required', 'integer', 'distinct', 'exists:product_variants,id'],
+            'items.*.qty_ordered' => ['required', 'integer', 'min:1'],
+            'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
+        ], [
+            'supplier_id.required' => 'Supplier wajib dipilih.',
+            'expected_date.after_or_equal' => 'Estimasi tiba tidak boleh sebelum tanggal PO.',
+            'items.required' => 'Tambahkan minimal satu varian.',
+            'items.min' => 'Tambahkan minimal satu varian.',
+            'items.*.variant_id.distinct' => 'Varian yang sama tidak boleh dipilih dua kali.',
+            'items.*.qty_ordered.required' => 'Jumlah pesanan wajib diisi.',
+            'items.*.qty_ordered.min' => 'Jumlah pesanan minimal satu.',
+            'items.*.unit_cost.required' => 'Harga beli wajib diisi.',
+            'items.*.unit_cost.min' => 'Harga beli tidak boleh negatif.',
+        ]);
+
+        $userId = $this->actor()->id;
+        $status = $validated['action'] === 'send' ? 'ordered' : 'draft';
+        $savedId = null;
+
+        DB::transaction(function () use ($validated, $userId, $status, $poId, &$savedId) {
+            $now = now();
+
+            $header = [
+                'supplier_id' => $validated['supplier_id'],
+                'order_date' => $validated['order_date'],
+                'expected_date' => $validated['expected_date'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'status' => $status,
+                'updated_at' => $now,
+            ];
+
+            if ($poId === null) {
+                $poId = DB::table('purchase_orders')->insertGetId($header + [
+                    'po_number' => $this->nextNumber(),
+                    'created_by' => $userId,
+                    'created_at' => $now,
+                ]);
+            } else {
+                $current = DB::table('purchase_orders')
+                    ->where('id', $poId)
+                    ->lockForUpdate()
+                    ->first(['status']);
+
+                if (! $current || $current->status !== 'draft') {
+                    throw ValidationException::withMessages([
+                        'items' => 'PO sudah tidak berstatus Draft dan tidak dapat diubah.',
+                    ]);
+                }
+
+                DB::table('purchase_orders')->where('id', $poId)->update($header);
+                DB::table('purchase_order_items')->where('purchase_order_id', $poId)->delete();
+            }
+
+            DB::table('purchase_order_items')->insert(
+                collect($validated['items'])->map(fn ($i) => [
+                    'purchase_order_id' => $poId,
+                    'variant_id' => (int) $i['variant_id'],
+                    'qty_ordered' => (int) $i['qty_ordered'],
+                    'qty_received' => 0,
+                    'unit_cost' => $i['unit_cost'],
+                ])->all()
+            );
+
+            $savedId = $poId;
+        });
+
+        return redirect()
+            ->route('purchase-orders.show', $savedId)
+            ->with('success', $status === 'ordered'
+                ? 'PO disimpan dan ditandai Dikirim.'
+                : 'Draft PO disimpan.');
+    }
+
+    private function formData(?object $po): array
+    {
+        $items = [];
+
+        if ($po) {
+            $items = DB::table('purchase_order_items')
+                ->where('purchase_order_id', $po->id)
+                ->orderBy('id')
+                ->get(['variant_id', 'qty_ordered', 'unit_cost'])
+                ->map(fn ($i) => [
+                    'id' => (int) $i->variant_id,
+                    'qty' => (int) $i->qty_ordered,
+                    'cost' => (float) $i->unit_cost,
+                ])
+                ->all();
+        }
+
+        // Harga beli terakhir tiap varian sebagai nilai awal.
+        $lastCost = DB::table('purchase_order_items')
+            ->select('variant_id')
+            ->selectRaw('MAX(unit_cost) AS cost')
+            ->groupBy('variant_id')
+            ->pluck('cost', 'variant_id');
+
+        $variants = DB::table('product_variants as v')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('v.status', 'active')
+            ->where('p.status', 'active')
+            ->whereNull('v.merged_into_variant_id')
+            ->orderBy('p.name')
+            ->orderBy('v.name')
+            ->get(['v.id', 'p.name', 'v.name as variant', 'v.sku', 'v.unit', 'v.current_stock'])
+            ->map(fn ($v) => [
+                'id' => (int) $v->id,
+                'name' => $v->name,
+                'variant' => $v->variant,
+                'sku' => $v->sku,
+                'unit' => $v->unit,
+                'stock' => (int) $v->current_stock,
+                'cost' => (float) ($lastCost[$v->id] ?? 0),
+            ])
+            ->values();
+
+        return [
+            'po' => $po,
+            'items' => $items,
+            'variants' => $variants,
+            'suppliers' => DB::table('suppliers')
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'poNumber' => $po->po_number ?? $this->nextNumber(),
+        ];
+    }
+
+    /** Nomor PO berurut per hari, mis. PO-20261018-001. */
+    private function nextNumber(): string
+    {
+        $stamp = 'PO-' . now()->format('Ymd') . '-';
+
+        $last = DB::table('purchase_orders')
+            ->where('po_number', 'like', $stamp . '%')
+            ->orderByDesc('po_number')
+            ->value('po_number');
+
+        $next = $last ? ((int) substr($last, -3)) + 1 : 1;
+
+        return $stamp . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }
