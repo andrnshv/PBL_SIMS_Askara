@@ -103,8 +103,34 @@ Route::get('/products', [ProductController::class, 'index'])
 Route::get('/products/create', [ProductController::class, 'create'])
     ->name('products.create');
 
+Route::get('/products/{id}/variants/{variantId}/edit', [ProductController::class, 'editVariant'])
+    ->name('products.variants.edit');
+
+Route::put('/products/{id}/variants/{variantId}', [ProductController::class, 'updateVariant'])
+    ->name('products.variants.update');
+
+Route::get('/products/{id}/edit', [ProductController::class, 'edit'])
+    ->name('products.edit');
+
+Route::put('/products/{id}', [ProductController::class, 'update'])
+    ->name('products.update');
+
+Route::delete('/products/{id}', [ProductController::class, 'destroy'])
+    ->name('products.destroy');
+
 Route::post('/products', [ProductController::class, 'store'])
     ->name('products.store');
+
+// Tambah varian produk
+Route::get('/products/{id}/variants/create', [ProductController::class, 'createVariant'])
+    ->name('products.variants.create');
+
+Route::post('/products/{id}/variants', [ProductController::class, 'storeVariant'])
+    ->name('products.variants.store');
+
+// Halaman lihat detail produk
+Route::get('/products/{id}', [ProductController::class, 'show'])
+    ->name('products.show');
 
 Route::get('/sales/history', [SalesController::class, 'history'])
     ->name('sales.history');
