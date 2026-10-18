@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -145,16 +146,21 @@ class ProductController extends Controller
         ));
     }
 
-    public function createVariant($id)
+        public function createVariant($id)
     {
         $product = Product::findOrFail($id);
+        $units = $this->unitOptions();
 
-        return view('pages.products.variants.create', compact('product'));
+        return view('pages.products.variants.create', compact('product', 'units'));
     }
 
     public function storeVariant(Request $request, $id)
     {
         $product = Product::findOrFail($id);
+
+        $request->merge([
+            'unit' => $this->normalizeUnit((string) $request->input('unit')),
+        ]);
 
         $validated = $request->validate([
             'sku' => [
@@ -224,19 +230,18 @@ class ProductController extends Controller
         return view('pages.products.variants.edit', [
             'product' => $product,
             'variant' => $variant,
+            'units'   => $this->unitOptions(),
         ]);
     }
 
     public function updateVariant(Request $request, $id, $variantId)
     {
-        // Pastikan produk induk tersedia.
         $product = DB::table('products')
             ->where('id', $id)
             ->first();
 
         abort_if(!$product, 404);
 
-        // Pastikan varian memang milik produk induk tersebut.
         $variant = DB::table('product_variants')
             ->where('id', $variantId)
             ->where('product_id', $id)
@@ -247,20 +252,22 @@ class ProductController extends Controller
         // Varian yang sudah digabung tidak dapat diedit.
         abort_if($variant->status === 'merged', 404);
 
-        // Validasi data.
+        $request->merge([
+            'unit' => $this->normalizeUnit((string) $request->input('unit')),
+        ]);
+
         $validated = $request->validate([
             'sku' => [
                 'required',
                 'string',
                 'max:100',
-                \Illuminate\Validation\Rule::unique('product_variants', 'sku')
-                    ->ignore($variantId, 'id'),
+                Rule::unique('product_variants', 'sku')->ignore($variantId, 'id'),
             ],
             'name' => ['required', 'string', 'max:255'],
             'unit' => ['required', 'string', 'max:50'],
             'selling_price' => ['required', 'numeric', 'min:0'],
             'reorder_point' => ['required', 'integer', 'min:0'],
-            'status' => ['required', \Illuminate\Validation\Rule::in(['active', 'inactive'])],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ]);
 
         // Perbarui data tanpa mengubah current_stock.
@@ -282,65 +289,27 @@ class ProductController extends Controller
             ->with('success', 'Varian produk berhasil diperbarui.');
     }
 
-    public function edit($id)
+    private function unitOptions()
     {
-        $product = Product::findOrFail($id);
-
-        $categories = Product::query()
-            ->whereNotNull('category')
-            ->where('category', '!=', '')
+        return ProductVariant::query()
+            ->whereNotNull('unit')
+            ->where('unit', '!=', '')
             ->distinct()
-            ->orderBy('category')
-            ->pluck('category');
-
-        return view('pages.products.edit', compact(
-            'product',
-            'categories'
-        ));
+            ->orderBy('unit')
+            ->pluck('unit')
+            ->unique(fn ($u) => mb_strtolower($u))
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
     }
 
-    public function update(Request $request, $id)
+    // Samakan penulisan dengan satuan yang sudah ada (beda huruf besar/kecil saja)
+    private function normalizeUnit(string $unit): string
     {
-        $product = Product::findOrFail($id);
+        $unit = trim($unit);
 
-        $category = trim((string) $request->input('category')) ?: null;
-
-        if ($category) {
-            $category = Product::query()
-                ->whereRaw('lower(category) = ?', [mb_strtolower($category)])
-                ->value('category') ?? $category;
-        }
-
-        $request->merge([
-            'name' => trim((string) $request->input('name')),
-            'category' => $category,
-        ]);
-
-        $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                \Illuminate\Validation\Rule::unique('products', 'name')
-                    ->ignore($product->id),
-            ],
-            'category' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'status' => ['required', \Illuminate\Validation\Rule::in(['active', 'inactive'])],
-        ], [
-            'name.required' => 'Nama produk wajib diisi.',
-            'name.unique' => 'Nama produk sudah digunakan.',
-            'name.max' => 'Nama produk maksimal 255 karakter.',
-            'category.max' => 'Kategori maksimal 255 karakter.',
-            'status.required' => 'Status produk wajib dipilih.',
-            'status.in' => 'Status produk tidak valid.',
-        ]);
-
-        $product->update($validated);
-
-        return redirect()
-            ->route('products.show', $product->id)
-            ->with('success', 'Produk "' . $product->name . '" berhasil diperbarui.');
+        return ProductVariant::query()
+            ->whereRaw('lower(unit) = ?', [mb_strtolower($unit)])
+            ->value('unit') ?? $unit;
     }
 
 }
