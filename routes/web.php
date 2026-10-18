@@ -7,6 +7,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReorderController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockInController;
+use App\Http\Controllers\PurchaseOrderController;
 
 // Locale Switch Route
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -166,3 +167,6 @@ Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])
 
 Route::post('/stock/opname', [StockController::class, 'opnameStore'])
     ->name('stock.opname.store');
+
+Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])
+    ->name('purchase-orders.index');
