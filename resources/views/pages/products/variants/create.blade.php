@@ -113,11 +113,60 @@
                     <label for="unit" class="mb-2 block text-sm font-semibold text-slate-700">
                         Satuan <span class="text-red-500">*</span>
                     </label>
-                    <input id="unit" name="unit" type="text"
-                           value="{{ old('unit', 'unit') }}"
-                           maxlength="50" required
-                           placeholder="Contoh: unit, pcs, box"
-                           class="w-full rounded-lg border border-slate-200 px-3.5 py-3 text-sm outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/15">
+
+                    <div
+                        x-data="{
+                            open: false,
+                            q: @js(old('unit', 'unit')),
+                            options: @js($units),
+                            picked: @js(in_array(old('unit', 'unit'), $units->all(), true)),
+                            get filtered() {
+                                const q = this.picked ? '' : this.q.toLowerCase();
+                                return this.options.filter(o => o.toLowerCase().includes(q));
+                            },
+                            get isNew() {
+                                return !this.picked && this.q.trim() !== '' &&
+                                    !this.options.some(o => o.toLowerCase() === this.q.trim().toLowerCase());
+                            },
+                            choose(o) { this.q = o; this.picked = true; this.open = false; },
+                            reset(el) { if (this.picked) { this.q = ''; el.value = ''; this.picked = false; } }
+                        }"
+                        @click.outside="open = false"
+                        class="relative"
+                    >
+                        <input
+                            type="text"
+                            id="unit"
+                            name="unit"
+                            x-model="q"
+                            @focus="open = true"
+                            @input="open = true"
+                            @keydown.escape="open = false"
+                            @keydown="if ($event.key.length === 1 && !$event.ctrlKey && !$event.metaKey && !$event.altKey || ['Backspace','Delete'].includes($event.key)) reset($el)"
+                            @paste="reset($el)"
+                            autocomplete="off"
+                            maxlength="50"
+                            required
+                            placeholder="Pilih satuan atau ketik satuan baru"
+                            class="w-full rounded-lg border border-slate-200 px-3.5 py-3 text-sm outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/15"
+                        >
+
+                        <ul x-show="open" x-cloak
+                            class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                            <template x-for="o in filtered" :key="o">
+                                <li @mousedown.prevent="choose(o)" x-text="o"
+                                    class="cursor-pointer px-3.5 py-2.5 text-slate-700 hover:bg-blue-50"></li>
+                            </template>
+
+                            <li x-show="isNew" @mousedown.prevent="open = false"
+                                x-text="'+ Buat satuan baru: ' + q"
+                                class="cursor-pointer border-t border-slate-100 px-3.5 py-2.5 font-medium text-[#4C8DF6] hover:bg-blue-50"></li>
+                        </ul>
+                    </div>
+
+                    <p class="mt-1.5 text-xs text-slate-400">
+                        Pilih satuan yang ada atau ketik untuk membuat satuan baru.
+                    </p>
                 </div>
 
                 {{-- Harga --}}
