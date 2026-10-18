@@ -5,6 +5,8 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReorderController;
+use App\Http\Controllers\StockController;
+use App\Http\Controllers\StockInController;
 
 // Locale Switch Route
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -143,3 +145,24 @@ Route::get('/reorder', [ReorderController::class, 'index'])
 
 Route::put('/reorder', [ReorderController::class, 'update'])
     ->name('reorder.update');
+
+Route::get('/stock', [StockController::class, 'index'])
+    ->name('stock.index');
+
+Route::get('/stock/incoming', [StockInController::class, 'create'])
+    ->name('stock.incoming.create');
+
+Route::post('/stock/incoming', [StockInController::class, 'store'])
+    ->name('stock.store');
+
+Route::get('/stock/history', [StockController::class, 'history'])
+    ->name('stock.history');
+
+Route::get('/stock/opname', [StockController::class, 'opnameIndex'])
+    ->name('stock.opname');
+
+Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])
+    ->name('stock.opname.create');
+
+Route::post('/stock/opname', [StockController::class, 'opnameStore'])
+    ->name('stock.opname.store');
