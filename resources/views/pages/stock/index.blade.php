@@ -1,8 +1,6 @@
 @extends('layouts.app')
 
 @section('title', 'Stok')
-@section('user', 'Staff Gudang')
-@section('role', 'Petugas Gudang')
 
 @section('content')
 @php
@@ -57,7 +55,7 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-                <a href="#"
+                <a href="{{ route('stock.history') }}"
                    class="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-[#0A1E45] transition hover:bg-slate-50">
                     <svg class="h-3.5 w-3.5 text-[#4C8DF6]"
                          fill="none"
@@ -95,6 +93,12 @@
     </header>
 
     <main class="flex-1 overflow-y-auto bg-[#EEF2FB] px-8 py-6">
+
+        @if (session('success'))
+            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-xs text-green-700">
+                {{ session('success') }}
+            </div>
+        @endif
 
         {{-- Kartu Ringkasan --}}
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -349,7 +353,7 @@
 
                                 {{-- Aksi --}}
                                 <td class="px-5 py-3.5">
-                                    <a href="{{ route('stock.history') }}"
+                                    <a href="{{ route('stock.history', ['variant' => $item['id']]) }}"
                                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C8DF6] hover:underline">
                                         Riwayat
 

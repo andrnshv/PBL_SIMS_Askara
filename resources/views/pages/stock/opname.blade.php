@@ -1,8 +1,6 @@
 @extends('layouts.app')
 
 @section('title', 'Stok Opname')
-@section('user', 'Staff Gudang')
-@section('role', 'Petugas Gudang')
 
 @section('content')
 @php
@@ -59,6 +57,18 @@
     </header>
 
     <main class="flex-1 overflow-y-auto bg-[#EEF2FB] px-8 py-6">
+
+        @if (session('success'))
+            <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-xs text-green-700">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+                {{ session('error') }}
+            </div>
+        @endif
 
         {{-- Ringkasan --}}
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -351,7 +361,7 @@
                                 {{-- Aksi --}}
                                 <td class="whitespace-nowrap px-5 py-3.5">
                                     @if ($o['status'] === 'draft')
-                                        <a href="#"
+                                        <a href="{{ route('stock.opname.edit', $o['id']) }}"
                                            class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C8DF6] hover:underline">
                                             Lanjutkan
 
@@ -365,8 +375,20 @@
                                                       d="M5 12h14m-6-6l6 6-6 6"/>
                                             </svg>
                                         </a>
+
+                                        <form method="POST"
+                                              action="{{ route('stock.opname.destroy', $o['id']) }}"
+                                              class="ml-3 inline"
+                                              onsubmit="return confirm('Hapus draft {{ $o['number'] }}?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit"
+                                                    class="text-[11px] font-semibold text-red-500 hover:underline">
+                                                Hapus
+                                            </button>
+                                        </form>
                                     @else
-                                        <a href="#"
+                                        <a href="{{ route('stock.opname.show', $o['id']) }}"
                                            class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C8DF6] hover:underline">
                                             Lihat Hasil
 
@@ -490,7 +512,7 @@
             </svg>
 
             Data pada halaman ini masih berupa ilustrasi untuk kebutuhan tampilan.
-            Dokumen belum tersimpan ke database dan tidak mengubah stok aktual.
+            Draft tidak mengubah stok. Stok dan riwayat pergerakan baru dicatat saat opname diselesaikan.
         </p>
 
     </main>

@@ -47,28 +47,15 @@
                 </p>
             </div>
 
-            {{-- Tombol aktif otomatis kalau route "purchase-orders.create" sudah dibuat --}}
-            @if (Route::has('purchase-orders.create'))
-                <a
-                    href="{{ route('purchase-orders.create') }}"
-                    class="inline-flex shrink-0 items-center gap-2 rounded-md bg-[#4C8DF6] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-600"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
-                    </svg>
-                    Buat PO
-                </a>
-            @else
-                <span
-                    title="Halaman Buat PO belum tersedia"
-                    class="inline-flex shrink-0 cursor-not-allowed items-center gap-2 rounded-md bg-[#4C8DF6]/50 px-4 py-2.5 text-xs font-semibold text-white"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
-                    </svg>
-                    Buat PO
-                </span>
-            @endif
+            <a
+                href="{{ route('purchase-orders.create') }}"
+                class="inline-flex shrink-0 items-center gap-2 rounded-md bg-[#4C8DF6] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-600"
+            >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
+                </svg>
+                Buat PO
+            </a>
         </div>
     </header>
 
@@ -84,24 +71,24 @@
                 Purchase Order
             </a>
 
-            @if (Route::has('goods-receipts.index'))
-                <a
-                    href="{{ route('goods-receipts.index') }}"
-                    class="-mb-px border-b-2 border-transparent px-1 pb-3 text-slate-500 transition hover:text-[#0A1E45]"
-                >
-                    Penerimaan barang
-                </a>
-            @else
-                <span class="-mb-px cursor-not-allowed border-b-2 border-transparent px-1 pb-3 text-slate-400">
-                    Penerimaan barang
-                </span>
-            @endif
+            <a
+                href="{{ route('goods-receipts.index') }}"
+                class="-mb-px border-b-2 border-transparent px-1 pb-3 text-slate-500 transition hover:text-[#0A1E45]"
+            >
+                Penerimaan barang
+            </a>
         </div>
 
         {{-- Notifikasi sukses --}}
         @if (session('success'))
             <div class="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
                 {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {{ session('error') }}
             </div>
         @endif
 
@@ -324,10 +311,7 @@
                                     'text'  => 'text-slate-600',
                                 ];
 
-                                // Link detail: otomatis aktif jika route "purchase-orders.show" sudah dibuat.
-                                $detailUrl = Route::has('purchase-orders.show')
-                                    ? route('purchase-orders.show', $po['id'])
-                                    : '#';
+                                $detailUrl = route('purchase-orders.show', $po['id']);
                             @endphp
 
                             <tr class="border-b border-slate-100 transition hover:bg-slate-50/70">
@@ -354,7 +338,7 @@
                                     </p>
                                 </td>
 
-                                {{-- Estimasi tiba (kolomnya belum ada di database, tampil "—" dulu) --}}
+                                {{-- Estimasi tiba --}}
                                 <td class="px-3 py-4 text-xs text-slate-600">
                                     {{ $po['eta'] ? $po['eta']->locale('id')->translatedFormat('d M Y') : '—' }}
                                 </td>
@@ -373,7 +357,7 @@
                                         href="{{ $detailUrl }}"
                                         class="text-xs font-semibold text-[#4C8DF6] hover:underline"
                                     >
-                                        {{ $po['status'] === 'draft' ? 'Ubah draft' : 'Lihat detail' }} →
+                                        Lihat detail →
                                     </a>
                                 </td>
                             </tr>
@@ -490,7 +474,7 @@
 
             <p>
                 Mengirim PO tidak menambah stok. Status Diterima sebagian dan Selesai
-                mengikuti penerimaan barang yang sudah tercatat, bukan draft penerimaan.
+                mengikuti dokumen penerimaan barang yang sudah tersimpan.
             </p>
         </div>
 

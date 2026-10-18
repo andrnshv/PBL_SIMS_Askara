@@ -3,14 +3,16 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class StockController extends Controller
 {
+    /** Gudang tunggal; belum ada tabel gudang di database. */
+    public const WAREHOUSE = 'Gudang Utama';
+
     public function index(Request $request)
     {
         // Batasi jumlah baris per halaman.
@@ -153,9 +155,11 @@ class StockController extends Controller
             'start' => ['nullable', 'date'],
             'end' => ['nullable', 'date', 'after_or_equal:start'],
             'per_page' => ['nullable', 'integer', 'in:10,25,50'],
+            'variant' => ['nullable', 'integer', 'exists:product_variants,id'],
         ]);
 
         $q = trim($validated['q'] ?? '');
+        $variantId = $validated['variant'] ?? null;
         $type = $validated['type'] ?? '';
         $start = $validated['start'] ?? null;
         $end = $validated['end'] ?? null;
@@ -165,7 +169,17 @@ class StockController extends Controller
             ->join('product_variants as v', 'v.id', '=', 'sm.variant_id')
             ->join('products as p', 'p.id', '=', 'v.product_id')
             ->leftJoin('users as u', 'u.id', '=', 'sm.created_by')
+            ->leftJoin('stock_receipts as sr', function ($join) {
+                $join->on('sr.id', '=', 'sm.reference_id')
+                    ->where('sm.reference_type', '=', 'stock_receipt');
+            })
+            ->leftJoin('stock_opnames as so', function ($join) {
+                $join->on('so.id', '=', 'sm.reference_id')
+                    ->where('sm.reference_type', '=', 'stock_opname');
+            })
             ->select([
+                'sr.receipt_no',
+                'so.opname_no',
                 'sm.id',
                 'sm.movement_type',
                 'sm.qty_change',
@@ -180,6 +194,10 @@ class StockController extends Controller
                 'v.unit',
                 'u.name as officer',
             ]);
+
+        if ($variantId) {
+            $query->where('sm.variant_id', $variantId);
+        }
 
         if ($start) {
             $query->whereDate('sm.created_at', '>=', $start);
@@ -239,15 +257,33 @@ class StockController extends Controller
                 'variant' => $m->variant_name,
                 'sku' => $m->sku,
                 'unit' => $m->unit,
-                'ref' => $m->reference_type
-                    ? $m->reference_type . ' #' . $m->reference_id
-                    : '-',
+                'ref' => match (true) {
+                    (bool) $m->receipt_no => $m->receipt_no,
+                    (bool) $m->opname_no => $m->opname_no,
+                    (bool) $m->reference_type => $m->reference_type . ' #' . $m->reference_id,
+                    default => '-',
+                },
+                'ref_url' => match (true) {
+                    (bool) $m->receipt_no => route('stock.receipts.show', $m->reference_id),
+                    (bool) $m->opname_no => route('stock.opname.show', $m->reference_id),
+                    default => null,
+                },
                 'ref_note' => $m->reference_type ?? '-',
                 'officer' => $m->officer ?? '-',
             ];
         });
 
+        $variantInfo = $variantId
+            ? DB::table('product_variants as v')
+                ->join('products as p', 'p.id', '=', 'v.product_id')
+                ->where('v.id', $variantId)
+                ->selectRaw("p.name || ' - ' || v.name as label")
+                ->value('label')
+            : null;
+
         return view('pages.stock.history', [
+            'variantId' => $variantId,
+            'variantInfo' => $variantInfo,
             'movements' => $movements,
             'rows' => $rows,
             'start' => $start,
@@ -256,6 +292,12 @@ class StockController extends Controller
             'type' => $type,
         ]);
     }
+
+    /* =====================================================================
+     |  STOK OPNAME
+     |  Tabel: stock_opnames (header) + stock_opname_items (detail)
+     |  Status DB: draft | completed  →  di tampilan: draft | selesai
+     ===================================================================== */
 
     public function opnameIndex(Request $request)
     {
@@ -273,116 +315,77 @@ class StockController extends Controller
         $end = $validated['end'] ?? null;
         $perPage = (int) ($validated['per_page'] ?? 10);
 
-        /*
-        |--------------------------------------------------------------------------
-        | DATA OPNAME SEMENTARA
-        |--------------------------------------------------------------------------
-        | Data berikut hanya untuk menguji tampilan.
-        | Belum tersimpan di database.
-        */
+        // Filter periode + pencarian (dipakai tabel dan kartu hitungan tab).
+        $base = DB::table('stock_opnames as o')
+            ->join('users as u', 'u.id', '=', 'o.performed_by')
+            ->whereIn('o.status', ['draft', 'completed']);
 
-        $opnameData = [
-            [
-                'id' => 1,
-                'number' => 'OPN-2026-001',
-                'date' => '2026-10-15',
-                'warehouse' => 'Gudang Utama',
-                'note' => 'Pemeriksaan stok mingguan',
-                'officer' => 'Staff Gudang',
-                'counted' => 7,
-                'diff' => 2,
-                'status' => 'draft',
-                'finished_at' => null,
-            ],
-            [
-                'id' => 2,
-                'number' => 'OPN-2026-002',
-                'date' => '2026-10-12',
-                'warehouse' => 'Gudang Utama',
-                'note' => 'Pemeriksaan stok produk las',
-                'officer' => 'Staff Gudang',
-                'counted' => 5,
-                'diff' => 1,
-                'status' => 'selesai',
-                'finished_at' => '2026-10-12 14:30:00',
-            ],
-            [
-                'id' => 3,
-                'number' => 'OPN-2026-003',
-                'date' => '2026-10-10',
-                'warehouse' => 'Gudang Utama',
-                'note' => 'Pemeriksaan stok berkala',
-                'officer' => 'Staff Gudang',
-                'counted' => 7,
-                'diff' => 0,
-                'status' => 'selesai',
-                'finished_at' => '2026-10-10 10:15:00',
-            ],
-        ];
-
-        $allOpnames = collect($opnameData)->map(function ($o) {
-            $o['date'] = Carbon::parse($o['date']);
-            $o['finished_at'] = $o['finished_at']
-                ? Carbon::parse($o['finished_at'])
-                : null;
-
-            return $o;
-        });
-
-        // Filter periode dan pencarian.
-        $filtered = $allOpnames->filter(function ($o) use (
-            $q, $start, $end
-        ) {
-            $matchesSearch = $q === ''
-                || str_contains(
-                    strtolower($o['number']),
-                    strtolower($q)
-                )
-                || str_contains(
-                    strtolower($o['note']),
-                    strtolower($q)
-                );
-
-            $matchesStart = !$start
-                || $o['date']->toDateString() >= $start;
-
-            $matchesEnd = !$end
-                || $o['date']->toDateString() <= $end;
-
-            return $matchesSearch && $matchesStart && $matchesEnd;
-        })->values();
-
-        // Ringkasan mengikuti pencarian dan periode,
-        // tetapi tidak mengikuti filter tab status.
-        $tabCounts = [
-            'all' => $filtered->count(),
-            'draft' => $filtered->where('status', 'draft')->count(),
-            'selesai' => $filtered->where('status', 'selesai')->count(),
-        ];
-
-        // Filter status untuk tabel.
-        if ($status !== '') {
-            $filtered = $filtered
-                ->where('status', $status)
-                ->values();
+        if ($start) {
+            $base->whereDate('o.opname_date', '>=', $start);
         }
 
-        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        if ($end) {
+            $base->whereDate('o.opname_date', '<=', $end);
+        }
 
-        $items = $filtered
-            ->slice(($currentPage - 1) * $perPage, $perPage)
-            ->values();
+        if ($q !== '') {
+            $base->where(function ($sub) use ($q) {
+                $sub->where('o.opname_no', 'ilike', "%{$q}%")
+                    ->orWhere('o.notes', 'ilike', "%{$q}%");
+            });
+        }
 
-        $opnames = new LengthAwarePaginator(
-            $items,
-            $filtered->count(),
-            $perPage,
-            $currentPage,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
+        $counts = (clone $base)
+            ->select('o.status')
+            ->selectRaw('COUNT(*) as c')
+            ->groupBy('o.status')
+            ->pluck('c', 'status');
+
+        $tabCounts = [
+            'draft' => (int) ($counts['draft'] ?? 0),
+            'selesai' => (int) ($counts['completed'] ?? 0),
+        ];
+        $tabCounts['all'] = $tabCounts['draft'] + $tabCounts['selesai'];
+
+        if ($status !== '') {
+            $base->where('o.status', $status === 'selesai' ? 'completed' : 'draft');
+        }
+
+        $opnames = $base
+            ->select([
+                'o.id',
+                'o.opname_no',
+                'o.opname_date',
+                'o.status',
+                'o.notes',
+                'o.completed_at',
+                'u.name as officer',
+            ])
+            ->selectRaw('(SELECT COUNT(*) FROM stock_opname_items i
+                          WHERE i.opname_id = o.id
+                            AND i.physical_qty IS NOT NULL) AS counted')
+            ->selectRaw('(SELECT COUNT(*) FROM stock_opname_items i
+                          WHERE i.opname_id = o.id
+                            AND i.difference IS NOT NULL
+                            AND i.difference <> 0) AS diff')
+            ->orderByDesc('o.opname_date')
+            ->orderByDesc('o.id')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn ($o) => [
+                'id' => (int) $o->id,
+                'number' => $o->opname_no,
+                'date' => Carbon::parse($o->opname_date),
+                'warehouse' => self::WAREHOUSE,
+                'note' => $o->notes,
+                'officer' => $o->officer,
+                'counted' => (int) $o->counted,
+                'diff' => (int) $o->diff,
+                'status' => $o->status === 'completed' ? 'selesai' : 'draft',
+                'finished_at' => $o->completed_at
+                    ? Carbon::parse($o->completed_at)
+                    : null,
+            ]);
 
         return view('pages.stock.opname', compact(
             'opnames',
@@ -396,61 +399,107 @@ class StockController extends Controller
 
     public function opnameCreate()
     {
-        $variants = DB::table('product_variants as pv')
-            ->join('products as p', 'p.id', '=', 'pv.product_id')
-            ->where('pv.status', 'active')
-            ->whereNull('pv.merged_into_variant_id')
+        return view('pages.stock.opname-create', $this->opnameFormData(null));
+    }
+
+    public function opnameEdit(int $id)
+    {
+        $opname = DB::table('stock_opnames')->where('id', $id)->first();
+        abort_if(! $opname, 404);
+
+        // Dokumen yang sudah selesai hanya bisa dilihat.
+        if ($opname->status !== 'draft') {
+            return redirect()->route('stock.opname.show', $id);
+        }
+
+        return view('pages.stock.opname-create', $this->opnameFormData($opname));
+    }
+
+    public function opnameShow(int $id)
+    {
+        $opname = DB::table('stock_opnames as o')
+            ->join('users as u', 'u.id', '=', 'o.performed_by')
+            ->where('o.id', $id)
+            ->first(['o.*', 'u.name as officer']);
+
+        abort_if(! $opname, 404);
+
+        if ($opname->status === 'draft') {
+            return redirect()->route('stock.opname.edit', $id);
+        }
+
+        $items = DB::table('stock_opname_items as i')
+            ->join('product_variants as v', 'v.id', '=', 'i.variant_id')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('i.opname_id', $id)
             ->orderBy('p.name')
-            ->orderBy('pv.name')
-            ->select([
-                'pv.id',
-                'p.name as name',
-                'pv.name as variant',
-                'pv.sku',
-                'pv.unit',
-                'pv.current_stock as stock',
-            ])
-            ->get()
-            ->map(fn ($v) => [
-                'id'      => (int) $v->id,
-                'name'    => $v->name,
-                'variant' => $v->variant,
-                'sku'     => $v->sku,
-                'unit'    => $v->unit,
-                'stock'   => (int) $v->stock,
-            ])
-            ->values();
+            ->orderBy('v.name')
+            ->get([
+                'p.name as product_name',
+                'v.name as variant_name',
+                'v.sku',
+                'v.unit',
+                'i.system_qty',
+                'i.physical_qty',
+                'i.difference',
+                'i.reason',
+            ]);
 
-        $draft = session('stock_opname_draft');
-
-        $initial = $draft['items'] ?? [];
-
-        $opnameNumber = $draft['number']
-            ?? 'OPN-' . now()->format('Ymd') . '-' . strtoupper(Str::random(4));
-
-        $warehouses = ['Gudang Utama'];
-
-        $officer = Auth::user()->name ?? 'Staff Gudang';
-
-        $snapshotTime = $draft['snapshot_time']
-            ?? now()->format('d-m-Y H:i');
-
-        return view('pages.stock.opname-create', compact(
-            'variants',
-            'initial',
-            'opnameNumber',
-            'warehouses',
-            'officer',
-            'snapshotTime'
-        ));
+        return view('pages.stock.opname-show', [
+            'opname' => $opname,
+            'items' => $items,
+            'warehouse' => self::WAREHOUSE,
+        ]);
     }
 
     public function opnameStore(Request $request)
     {
+        return $this->opnameSave($request, null);
+    }
+
+    public function opnameUpdate(Request $request, int $id)
+    {
+        $opname = DB::table('stock_opnames')->where('id', $id)->first();
+        abort_if(! $opname, 404);
+
+        if ($opname->status !== 'draft') {
+            return redirect()
+                ->route('stock.opname.show', $id)
+                ->with('error', 'Opname yang sudah selesai tidak dapat diubah.');
+        }
+
+        return $this->opnameSave($request, $id);
+    }
+
+    public function opnameDestroy(int $id)
+    {
+        $opname = DB::table('stock_opnames')->where('id', $id)->first();
+        abort_if(! $opname, 404);
+
+        if ($opname->status !== 'draft') {
+            return redirect()
+                ->route('stock.opname')
+                ->with('error', 'Hanya draft opname yang boleh dihapus.');
+        }
+
+        // stock_opname_items ikut terhapus lewat cascadeOnDelete.
+        DB::table('stock_opnames')->where('id', $id)->delete();
+
+        return redirect()
+            ->route('stock.opname')
+            ->with('success', "Draft {$opname->opname_no} dihapus.");
+    }
+
+    /**
+     * Simpan draft atau selesaikan opname (insert baru atau update draft).
+     * Seluruh proses dalam satu transaksi; stok baru berubah saat "finish".
+     */
+    private function opnameSave(Request $request, ?int $opnameId)
+    {
         $validated = $request->validate([
             'action' => ['required', 'in:draft,finish'],
             'opname_date' => ['required', 'date'],
-            'warehouse' => ['required', 'in:Gudang Utama'],
+            'warehouse' => ['required', 'in:' . self::WAREHOUSE],
             'notes' => ['nullable', 'string', 'max:255'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.variant_id' => [
@@ -461,135 +510,226 @@ class StockController extends Controller
             ],
             'items.*.counted' => ['nullable', 'integer', 'min:0'],
             'items.*.note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'items.required' => 'Pilih minimal satu varian.',
+            'items.min' => 'Pilih minimal satu varian.',
         ]);
 
-        $items = collect($validated['items'])->map(function ($item) {
-            return [
-                'id' => (int) $item['variant_id'],
-                'counted' => $item['counted'] ?? '',
-                'note' => trim($item['note'] ?? ''),
-            ];
-        })->values()->all();
+        $finish = $validated['action'] === 'finish';
+        $userId = $this->actor()->id;
 
-        // Simpan draft sementara tanpa mengubah stok.
-        if ($validated['action'] === 'draft') {
-            $existingDraft = session('stock_opname_draft', []);
+        $items = collect($validated['items'])->map(fn ($item) => [
+            'variant_id' => (int) $item['variant_id'],
+            'counted' => ($item['counted'] ?? '') === '' ? null : (int) $item['counted'],
+            'note' => trim($item['note'] ?? ''),
+        ])->values();
 
-            session([
-                'stock_opname_draft' => [
-                    'number' => $existingDraft['number']
-                        ?? 'OPN-' . now()->format('Ymd') . '-' . strtoupper(Str::random(4)),
-                    'opname_date' => $validated['opname_date'],
-                    'warehouse' => $validated['warehouse'],
-                    'notes' => $validated['notes'] ?? '',
-                    'snapshot_time' => $existingDraft['snapshot_time']
-                        ?? now()->format('d-m-Y H:i'),
-                    'items' => $items,
-                ],
-            ]);
-
-            return redirect()
-                ->route('stock.opname.create')
-                ->with('success', 'Draft opname disimpan sementara.');
-        }
-
-        // Opname selesai: seluruh varian harus memiliki hitungan fisik.
-        foreach ($items as $index => $item) {
-            if ($item['counted'] === '' || $item['counted'] === null) {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        "items.$index.counted" =>
-                            'Semua varian harus memiliki hasil hitung fisik sebelum opname diselesaikan.',
-                    ]);
-            }
-
-            $variant = DB::table('product_variants')
-                ->where('id', $item['id'])
-                ->first(['current_stock']);
-
-            if (!$variant) {
-                return back()
-                    ->withInput()
-                    ->withErrors(['items' => 'Ada varian yang sudah tidak tersedia.']);
-            }
-
-            $difference = (int) $item['counted'] - (int) $variant->current_stock;
-
-            if ($difference !== 0 && trim($item['note']) === '') {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        "items.$index.note" =>
-                            'Catatan wajib diisi untuk varian yang memiliki selisih.',
-                    ]);
-            }
-        }
-
-        $userId = Auth::id();
-
-        if (!$userId) {
-            return redirect()->route('login');
-        }
+        $savedId = null;
 
         try {
-            DB::transaction(function () use ($items, $userId) {
-                foreach ($items as $item) {
-                    $variant = DB::table('product_variants')
-                        ->where('id', $item['id'])
-                        ->lockForUpdate()
-                        ->first(['id', 'current_stock']);
+            DB::transaction(function () use (
+                $validated, $items, $finish, $userId, $opnameId, &$savedId
+            ) {
+                $now = now();
 
-                    if (!$variant) {
-                        throw new \RuntimeException(
-                            'Varian tidak ditemukan. Silakan muat ulang halaman.'
-                        );
+                // Kunci semua varian (urut ID) agar stok konsisten.
+                $stocks = DB::table('product_variants')
+                    ->whereIn('id', $items->pluck('variant_id'))
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->pluck('current_stock', 'id');
+
+                // Validasi penyelesaian memakai stok terkunci (terbaru).
+                if ($finish) {
+                    foreach ($items as $index => $item) {
+                        if ($item['counted'] === null) {
+                            throw ValidationException::withMessages([
+                                "items.$index.counted" =>
+                                    'Semua varian harus memiliki hasil hitung fisik sebelum opname diselesaikan.',
+                            ]);
+                        }
+
+                        $diff = $item['counted'] - (int) $stocks[$item['variant_id']];
+
+                        if ($diff !== 0 && $item['note'] === '') {
+                            throw ValidationException::withMessages([
+                                "items.$index.note" =>
+                                    'Catatan wajib diisi untuk varian yang memiliki selisih.',
+                            ]);
+                        }
+                    }
+                }
+
+                $header = [
+                    'opname_date' => $validated['opname_date'],
+                    'notes' => $validated['notes'] ?? null,
+                    'updated_at' => $now,
+                ];
+
+                if ($opnameId === null) {
+                    $opnameId = DB::table('stock_opnames')->insertGetId($header + [
+                        'opname_no' => $this->nextNumber('stock_opnames', 'opname_no', 'OPN'),
+                        'status' => 'draft',
+                        'performed_by' => $userId,
+                        'created_at' => $now,
+                    ]);
+                } else {
+                    // Kunci dokumen & pastikan masih draft.
+                    $current = DB::table('stock_opnames')
+                        ->where('id', $opnameId)
+                        ->lockForUpdate()
+                        ->first(['status']);
+
+                    if (! $current || $current->status !== 'draft') {
+                        throw ValidationException::withMessages([
+                            'items' => 'Dokumen opname sudah selesai dan tidak dapat diubah.',
+                        ]);
                     }
 
-                    $before = (int) $variant->current_stock;
-                    $after = (int) $item['counted'];
-                    $difference = $after - $before;
+                    DB::table('stock_opnames')->where('id', $opnameId)->update($header);
+                    DB::table('stock_opname_items')->where('opname_id', $opnameId)->delete();
+                }
 
-                    // Tidak perlu membuat pergerakan jika tidak ada selisih.
-                    if ($difference === 0) {
+                foreach ($items as $item) {
+                    $system = (int) $stocks[$item['variant_id']];
+                    $counted = $item['counted'];
+                    $diff = $counted === null ? null : $counted - $system;
+
+                    DB::table('stock_opname_items')->insert([
+                        'opname_id' => $opnameId,
+                        'variant_id' => $item['variant_id'],
+                        'system_qty' => $system,
+                        'physical_qty' => $counted,
+                        'difference' => $diff,
+                        'reason' => $item['note'] !== '' ? $item['note'] : null,
+                    ]);
+
+                    if (! $finish || $diff === 0) {
                         continue;
                     }
 
                     DB::table('stock_movements')->insert([
-                        'variant_id' => $variant->id,
-                        'movement_type' => 'adjustment',
-                        'qty_change' => $difference,
-                        'stock_before' => $before,
-                        'stock_after' => $after,
+                        'variant_id' => $item['variant_id'],
+                        'movement_type' => 'opname_adjustment',
+                        'qty_change' => $diff,
+                        'stock_before' => $system,
+                        'stock_after' => $counted,
                         'reference_type' => 'stock_opname',
-                        'reference_id' => null,
+                        'reference_id' => $opnameId,
                         'created_by' => $userId,
-                        'created_at' => now(),
+                        'created_at' => $now,
                     ]);
 
                     DB::table('product_variants')
-                        ->where('id', $variant->id)
-                        ->update([
-                            'current_stock' => $after,
-                            'updated_at' => now(),
-                        ]);
+                        ->where('id', $item['variant_id'])
+                        ->update(['current_stock' => $counted, 'updated_at' => $now]);
                 }
+
+                if ($finish) {
+                    DB::table('stock_opnames')->where('id', $opnameId)->update([
+                        'status' => 'completed',
+                        'completed_at' => $now,
+                    ]);
+                }
+
+                $savedId = $opnameId;
             });
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
 
             return back()
                 ->withInput()
-                ->withErrors([
-                    'items' => 'Opname gagal diselesaikan. Periksa kembali data dan konfigurasi database.',
-                ]);
+                ->withErrors(['items' => 'Opname gagal disimpan. Silakan coba lagi.']);
         }
 
-        session()->forget('stock_opname_draft');
+        if ($finish) {
+            return redirect()
+                ->route('stock.opname.show', $savedId)
+                ->with('success', 'Opname selesai dan penyesuaian stok berhasil dicatat.');
+        }
 
         return redirect()
-            ->route('stock.opname')
-            ->with('success', 'Opname selesai dan penyesuaian stok berhasil dicatat.');
+            ->route('stock.opname.edit', $savedId)
+            ->with('success', 'Draft opname disimpan.');
     }
 
+    /** Data untuk form opname (baru atau lanjutkan draft). */
+    private function opnameFormData(?object $opname): array
+    {
+        $variants = DB::table('product_variants as pv')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->where('pv.status', 'active')
+            ->whereNull('pv.merged_into_variant_id')
+            ->orderBy('p.name')
+            ->orderBy('pv.name')
+            ->get([
+                'pv.id',
+                'p.name as name',
+                'pv.name as variant',
+                'pv.sku',
+                'pv.unit',
+                'pv.current_stock as stock',
+            ])
+            ->map(fn ($v) => [
+                'id' => (int) $v->id,
+                'name' => $v->name,
+                'variant' => $v->variant,
+                'sku' => $v->sku,
+                'unit' => $v->unit,
+                'stock' => (int) $v->stock,
+            ])
+            ->values();
+
+        $initial = [];
+        $draft = [];
+        $snapshotTime = now()->format('d-m-Y H:i');
+
+        if ($opname) {
+            $initial = DB::table('stock_opname_items')
+                ->where('opname_id', $opname->id)
+                ->orderBy('id')
+                ->get(['variant_id', 'physical_qty', 'reason'])
+                ->map(fn ($i) => [
+                    'id' => (int) $i->variant_id,
+                    'counted' => $i->physical_qty ?? '',
+                    'note' => $i->reason ?? '',
+                ])
+                ->all();
+
+            $draft = [
+                'opname_date' => Carbon::parse($opname->opname_date)->toDateString(),
+                'notes' => $opname->notes ?? '',
+            ];
+            $snapshotTime = Carbon::parse($opname->updated_at)->format('d-m-Y H:i');
+        }
+
+        return [
+            'variants' => $variants,
+            'initial' => $initial,
+            'draft' => $draft,
+            'opname' => $opname,
+            'opnameNumber' => $opname->opname_no
+                ?? $this->nextNumber('stock_opnames', 'opname_no', 'OPN'),
+            'warehouses' => [self::WAREHOUSE],
+            'officer' => $this->actor()->name,
+            'snapshotTime' => $snapshotTime,
+        ];
+    }
+
+    /** Nomor dokumen berurut per hari, mis. OPN-20261018-003. */
+    private function nextNumber(string $table, string $column, string $prefix): string
+    {
+        $stamp = $prefix . '-' . now()->format('Ymd') . '-';
+
+        $last = DB::table($table)
+            ->where($column, 'like', $stamp . '%')
+            ->orderByDesc($column)
+            ->value($column);
+
+        $next = $last ? ((int) substr($last, -3)) + 1 : 1;
+
+        return $stamp . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+    }
 }

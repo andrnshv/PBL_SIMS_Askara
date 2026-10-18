@@ -2,24 +2,158 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Stok masuk = dokumen penerimaan barang (stock_receipts + stock_receipt_items).
+ * Bisa dari PO (?po=ID) atau penerimaan langsung tanpa PO.
+ */
 class StockInController extends Controller
 {
-    /**
-     * Menampilkan form stok masuk.
-     */
-    public function create()
+    /** Daftar dokumen penerimaan (tab "Penerimaan barang" di menu Pembelian). */
+    public function index(Request $request)
     {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'start' => ['nullable', 'date'],
+            'end' => ['nullable', 'date', 'after_or_equal:start'],
+            'per_page' => ['nullable', 'integer', 'in:10,25,50'],
+        ]);
+
+        $q = trim($validated['q'] ?? '');
+        $perPage = (int) ($validated['per_page'] ?? 10);
+
+        $query = DB::table('stock_receipts as r')
+            ->leftJoin('suppliers as s', 's.id', '=', 'r.supplier_id')
+            ->leftJoin('purchase_orders as po', 'po.id', '=', 'r.purchase_order_id')
+            ->join('users as u', 'u.id', '=', 'r.received_by')
+            ->select([
+                'r.id',
+                'r.receipt_no',
+                'r.receipt_date',
+                'r.delivery_ref',
+                's.name as supplier',
+                'po.po_number',
+                'u.name as officer',
+            ])
+            ->selectRaw('(SELECT COUNT(*) FROM stock_receipt_items i WHERE i.receipt_id = r.id) AS variants')
+            ->selectRaw('(SELECT COALESCE(SUM(i.qty_received), 0) FROM stock_receipt_items i WHERE i.receipt_id = r.id) AS total_qty');
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('r.receipt_no', 'ilike', "%{$q}%")
+                    ->orWhere('r.delivery_ref', 'ilike', "%{$q}%")
+                    ->orWhere('s.name', 'ilike', "%{$q}%")
+                    ->orWhere('po.po_number', 'ilike', "%{$q}%");
+            });
+        }
+
+        if (! empty($validated['start'])) {
+            $query->whereDate('r.receipt_date', '>=', $validated['start']);
+        }
+
+        if (! empty($validated['end'])) {
+            $query->whereDate('r.receipt_date', '<=', $validated['end']);
+        }
+
+        $receipts = $query
+            ->orderByDesc('r.receipt_date')
+            ->orderByDesc('r.id')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return view('pages.stock.receipts', [
+            'receipts' => $receipts,
+            'perPage' => $perPage,
+        ]);
+    }
+
+    public function show(int $id)
+    {
+        $receipt = DB::table('stock_receipts as r')
+            ->leftJoin('suppliers as s', 's.id', '=', 'r.supplier_id')
+            ->leftJoin('purchase_orders as po', 'po.id', '=', 'r.purchase_order_id')
+            ->join('users as u', 'u.id', '=', 'r.received_by')
+            ->where('r.id', $id)
+            ->first([
+                'r.*',
+                's.name as supplier',
+                'po.po_number',
+                'u.name as officer',
+            ]);
+
+        abort_if(! $receipt, 404);
+
+        $items = DB::table('stock_receipt_items as i')
+            ->join('product_variants as v', 'v.id', '=', 'i.variant_id')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('i.receipt_id', $id)
+            ->orderBy('p.name')
+            ->orderBy('v.name')
+            ->get([
+                'p.name as product_name',
+                'v.name as variant_name',
+                'v.sku',
+                'v.unit',
+                'i.qty_received',
+            ]);
+
+        return view('pages.stock.receipt-show', [
+            'receipt' => $receipt,
+            'items' => $items,
+            'warehouse' => StockController::WAREHOUSE,
+        ]);
+    }
+
+    /** Form stok masuk. Dengan ?po=ID, varian & jumlah terisi dari sisa PO. */
+    public function create(Request $request)
+    {
+        $po = null;
+        $initial = [];
+
+        if ($request->filled('po')) {
+            $po = DB::table('purchase_orders')
+                ->where('id', (int) $request->input('po'))
+                ->whereIn('status', ['ordered', 'partial'])
+                ->first();
+
+            if (! $po) {
+                return redirect()
+                    ->route('purchase-orders.index')
+                    ->with('error', 'PO tidak ditemukan atau belum/sudah tidak bisa menerima barang.');
+            }
+
+            $initial = DB::table('purchase_order_items')
+                ->where('purchase_order_id', $po->id)
+                ->whereRaw('qty_ordered > qty_received')
+                ->selectRaw('variant_id, (qty_ordered - qty_received) AS remaining')
+                ->pluck('remaining', 'variant_id')
+                ->all();
+        }
+
+        // Pulihkan jumlah yang diisi apabila validasi gagal.
+        $old = collect(old('items', []))
+            ->filter(fn ($item) => isset($item['variant_id']))
+            ->mapWithKeys(fn ($item) => [
+                (string) $item['variant_id'] => $item['qty'] ?? '',
+            ])
+            ->all();
+
+        if ($old) {
+            $initial = $old;
+        }
+
         $variants = DB::table('product_variants as v')
             ->join('products as p', 'p.id', '=', 'v.product_id')
             ->where('v.status', 'active')
             ->where('p.status', 'active')
             ->whereNull('v.merged_into_variant_id')
-            ->select([
+            ->orderBy('p.name')
+            ->orderBy('v.name')
+            ->get([
                 'v.id',
                 'v.sku',
                 'v.name as variant',
@@ -27,9 +161,6 @@ class StockInController extends Controller
                 'v.current_stock as stock',
                 'p.name',
             ])
-            ->orderBy('p.name')
-            ->orderBy('v.name')
-            ->get()
             ->map(fn ($v) => [
                 'id' => (int) $v->id,
                 'name' => $v->name,
@@ -40,40 +171,35 @@ class StockInController extends Controller
             ])
             ->values();
 
-        // Pulihkan jumlah yang diisi apabila validasi gagal.
-        $initial = collect(old('items', []))
-            ->filter(fn ($item) => isset($item['variant_id']))
-            ->mapWithKeys(fn ($item) => [
-                (string) $item['variant_id'] => $item['qty'] ?? '',
-            ])
-            ->all();
+        $suppliers = DB::table('suppliers')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return view('pages.stock.incoming', [
             'variants' => $variants,
             'initial' => (object) $initial,
-            'receiptNumber' => 'IN-' . now()->format('Ymd-His'),
-            'officer' => auth()->user()->name ?? 'Staff Gudang',
+            'suppliers' => $suppliers,
+            'po' => $po,
+            'warehouses' => [StockController::WAREHOUSE],
+            'receiptNumber' => $this->nextReceiptNumber(),
+            'officer' => $this->actor()->name,
         ]);
     }
 
-    /**
-     * Menambahkan stok dan mencatat pergerakannya.
-     */
+    /** Simpan dokumen penerimaan, tambah stok, dan catat pergerakannya. */
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'received_at' => ['required', 'date'],
+            'warehouse' => ['nullable', 'in:' . StockController::WAREHOUSE],
+            'supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
+            'purchase_order_id' => ['nullable', 'integer', 'exists:purchase_orders,id'],
+            'delivery_ref' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.variant_id' => [
-                'required',
-                'integer',
-                'distinct',
-                'min:1',
-            ],
-            'items.*.qty' => [
-                'required',
-                'integer',
-                'min:1',
-            ],
+            'items.*.variant_id' => ['required', 'integer', 'distinct', 'min:1'],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
         ], [
             'items.required' => 'Pilih minimal satu varian.',
             'items.min' => 'Pilih minimal satu varian.',
@@ -84,21 +210,20 @@ class StockInController extends Controller
             'items.*.qty.min' => 'Jumlah diterima minimal satu.',
         ]);
 
-        $userId = $request->user()->id;
+        $userId = $this->actor()->id;
+        $receiptId = null;
 
-        DB::transaction(function () use ($validated, $userId) {
-            $items = collect($validated['items']);
+        DB::transaction(function () use ($validated, $userId, &$receiptId) {
+            $now = now();
+            $items = collect($validated['items'])->map(fn ($i) => [
+                'variant_id' => (int) $i['variant_id'],
+                'qty' => (int) $i['qty'],
+            ]);
 
-            // Urutkan ID agar penguncian stok konsisten.
-            $variantIds = $items
-                ->pluck('variant_id')
-                ->map(fn ($id) => (int) $id)
-                ->sort()
-                ->values();
-
+            // Kunci varian (urut ID) agar stok konsisten.
             $variants = DB::table('product_variants as v')
                 ->join('products as p', 'p.id', '=', 'v.product_id')
-                ->whereIn('v.id', $variantIds)
+                ->whereIn('v.id', $items->pluck('variant_id')->sort()->values())
                 ->select([
                     'v.id',
                     'v.current_stock',
@@ -113,55 +238,150 @@ class StockInController extends Controller
                 ->get()
                 ->keyBy('id');
 
-            if ($variants->count() !== $variantIds->count()) {
+            if ($variants->count() !== $items->count()) {
                 throw ValidationException::withMessages([
                     'items' => 'Ada varian yang tidak ditemukan.',
                 ]);
             }
 
-            $now = now();
-
             foreach ($items as $item) {
-                $id = (int) $item['variant_id'];
-                $qty = (int) $item['qty'];
-                $variant = $variants->get($id);
+                $v = $variants->get($item['variant_id']);
 
                 if (
-                    $variant->variant_status !== 'active' ||
-                    $variant->product_status !== 'active' ||
-                    $variant->merged_into_variant_id !== null
+                    $v->variant_status !== 'active' ||
+                    $v->product_status !== 'active' ||
+                    $v->merged_into_variant_id !== null
                 ) {
                     throw ValidationException::withMessages([
-                        'items' => "Varian {$variant->product_name} - {$variant->variant_name} tidak aktif atau sudah digabung.",
+                        'items' => "Varian {$v->product_name} - {$v->variant_name} tidak aktif atau sudah digabung.",
+                    ]);
+                }
+            }
+
+            // Jika berasal dari PO: cek sisa jumlah tiap varian.
+            $poId = $validated['purchase_order_id'] ?? null;
+            $poItems = collect();
+            $supplierId = $validated['supplier_id'] ?? null;
+
+            if ($poId) {
+                $po = DB::table('purchase_orders')
+                    ->where('id', $poId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! in_array($po->status, ['ordered', 'partial'], true)) {
+                    throw ValidationException::withMessages([
+                        'items' => 'PO ini tidak dapat menerima barang (status: ' . $po->status . ').',
                     ]);
                 }
 
-                $before = (int) $variant->current_stock;
-                $after = $before + $qty;
+                $supplierId = $po->supplier_id;
+
+                $poItems = DB::table('purchase_order_items')
+                    ->where('purchase_order_id', $poId)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('variant_id');
+
+                foreach ($items as $item) {
+                    $poItem = $poItems->get($item['variant_id']);
+                    $v = $variants->get($item['variant_id']);
+                    $label = "{$v->product_name} - {$v->variant_name}";
+
+                    if (! $poItem) {
+                        throw ValidationException::withMessages([
+                            'items' => "Varian {$label} tidak ada di PO {$po->po_number}.",
+                        ]);
+                    }
+
+                    $remaining = $poItem->qty_ordered - $poItem->qty_received;
+
+                    if ($item['qty'] > $remaining) {
+                        throw ValidationException::withMessages([
+                            'items' => "Jumlah {$label} melebihi sisa PO (sisa {$remaining}).",
+                        ]);
+                    }
+                }
+            }
+
+            $receiptId = DB::table('stock_receipts')->insertGetId([
+                'receipt_no' => $this->nextReceiptNumber(),
+                'receipt_date' => $validated['received_at'],
+                'supplier_id' => $supplierId,
+                'purchase_order_id' => $poId,
+                'delivery_ref' => $validated['delivery_ref'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'received_by' => $userId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            foreach ($items as $item) {
+                $v = $variants->get($item['variant_id']);
+                $before = (int) $v->current_stock;
+                $after = $before + $item['qty'];
+
+                DB::table('stock_receipt_items')->insert([
+                    'receipt_id' => $receiptId,
+                    'variant_id' => $item['variant_id'],
+                    'qty_received' => $item['qty'],
+                ]);
 
                 DB::table('product_variants')
-                    ->where('id', $id)
-                    ->update([
-                        'current_stock' => $after,
-                        'updated_at' => $now,
-                    ]);
+                    ->where('id', $item['variant_id'])
+                    ->update(['current_stock' => $after, 'updated_at' => $now]);
 
                 DB::table('stock_movements')->insert([
-                    'variant_id' => $id,
-                    'movement_type' => 'stock_in',
-                    'qty_change' => $qty,
+                    'variant_id' => $item['variant_id'],
+                    'movement_type' => 'receipt',
+                    'qty_change' => $item['qty'],
                     'stock_before' => $before,
                     'stock_after' => $after,
-                    'reference_type' => 'stock_in',
-                    'reference_id' => null,
+                    'reference_type' => 'stock_receipt',
+                    'reference_id' => $receiptId,
                     'created_by' => $userId,
                     'created_at' => $now,
+                ]);
+
+                if ($poId) {
+                    DB::table('purchase_order_items')
+                        ->where('purchase_order_id', $poId)
+                        ->where('variant_id', $item['variant_id'])
+                        ->increment('qty_received', $item['qty']);
+                }
+            }
+
+            // Status PO mengikuti penerimaan yang sudah tercatat.
+            if ($poId) {
+                $open = DB::table('purchase_order_items')
+                    ->where('purchase_order_id', $poId)
+                    ->whereRaw('qty_received < qty_ordered')
+                    ->exists();
+
+                DB::table('purchase_orders')->where('id', $poId)->update([
+                    'status' => $open ? 'partial' : 'received',
+                    'updated_at' => $now,
                 ]);
             }
         });
 
         return redirect()
-            ->route('stock.index')
+            ->route('stock.receipts.show', $receiptId)
             ->with('success', 'Stok masuk berhasil disimpan.');
+    }
+
+    /** Nomor dokumen berurut per hari, mis. IN-20261018-001. */
+    private function nextReceiptNumber(): string
+    {
+        $stamp = 'IN-' . Carbon::now()->format('Ymd') . '-';
+
+        $last = DB::table('stock_receipts')
+            ->where('receipt_no', 'like', $stamp . '%')
+            ->orderByDesc('receipt_no')
+            ->value('receipt_no');
+
+        $next = $last ? ((int) substr($last, -3)) + 1 : 1;
+
+        return $stamp . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }
