@@ -12,6 +12,7 @@ use App\Http\Controllers\StockInController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SupplierController;
 
 /*
 | Hak akses (admin selalu lolos semua middleware 'role'):
@@ -258,4 +259,28 @@ Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
     Route::post('/purchase-orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])
         ->whereNumber('id')
         ->name('purchase-orders.cancel');
+});
+
+ // ================= MANAJEMEN SUPPLIER =================
+Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
+    Route::get('/suppliers', [SupplierController::class, 'index'])
+        ->name('suppliers.index');
+
+    Route::get('/suppliers/create', [SupplierController::class, 'create'])
+        ->name('suppliers.create');
+
+    Route::post('/suppliers', [SupplierController::class, 'store'])
+        ->name('suppliers.store');
+
+    Route::get('/suppliers/{id}/edit', [SupplierController::class, 'edit'])
+        ->whereNumber('id')
+        ->name('suppliers.edit');
+
+    Route::put('/suppliers/{id}', [SupplierController::class, 'update'])
+        ->whereNumber('id')
+        ->name('suppliers.update');
+
+    Route::delete('/suppliers/{id}', [SupplierController::class, 'destroy'])
+        ->whereNumber('id')
+        ->name('suppliers.destroy');
 });
