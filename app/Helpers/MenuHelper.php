@@ -53,6 +53,12 @@ class MenuHelper
                 'roles' => ['staff_pembelian'],
             ],
             [
+                'icon' => 'warehouse',
+                'name' => 'Supplier',
+                'path' => '/suppliers',
+                'roles' => ['staff_pembelian'],
+            ],
+            [
                 'icon' => 'user-profile',
                 'name' => 'User Profile',
                 'path' => '/profile',
