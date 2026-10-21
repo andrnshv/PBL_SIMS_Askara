@@ -4,8 +4,9 @@ namespace App\Helpers;
 
 class MenuHelper
 {
-
-    public static function getMainNavItems()
+ // 'roles' => role yang boleh melihat menu. Tanpa 'roles' = semua user login.
+    // Admin selalu melihat semua.
+    private static function mainNavItems(): array
     {
         return [
             [
@@ -19,11 +20,13 @@ class MenuHelper
                 'icon' => 'sales',
                 'name' => 'Transaksi Penjualan',
                 'path' => '/sales',
+                'roles' => ['staff_penjualan'],
             ],
             [
                 'icon' => 'history',
                 'name' => 'Riwayat Penjualan',
                 'path' => '/sales/history',
+                'roles' => ['staff_penjualan'],
             ],
             [
                 'icon' => 'package',
@@ -35,7 +38,7 @@ class MenuHelper
                 'name' => 'Stok',
                 'subItems' => [
                     ['name' => 'Daftar Stok', 'path' => '/stock'],
-                    ['name' => 'Stok Masuk', 'path' => '/stock/incoming'],
+                    ['name' => 'Stok Masuk', 'path' => '/stock/incoming', 'roles' => ['staff_gudang', 'staff_pembelian']],
                 ],
             ],
             [
@@ -47,6 +50,7 @@ class MenuHelper
                 'icon' => 'ecommerce',
                 'name' => 'Pembelian',
                 'path' => '/purchase-orders',
+                'roles' => ['staff_pembelian'],
             ],
             [
                 'icon' => 'user-profile',
@@ -56,33 +60,76 @@ class MenuHelper
         ];
     }
 
-    public static function getOthersItems()
+    private static function othersItems(): array
     {
         return [
             [
                 'icon' => 'authentication',
-                'name' => 'Authentication',
+                'name' => 'Akun',
+                'roles' => ['admin'],
                 'subItems' => [
-                    ['name' => 'Sign In', 'path' => '/signin', 'pro' => false],
-                    ['name' => 'Sign Up', 'path' => '/signup', 'pro' => false],
+                    ['name' => 'Tambah Akun', 'path' => '/signup', 'pro' => false],
                 ],
             ],
         ];
     }
 
+    private static function canSee(array $item): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return empty($item['roles']) || $user->hasRole(...$item['roles']);
+    }
+
+    private static function filter(array $items): array
+    {
+        $result = [];
+
+        foreach ($items as $item) {
+            if (! self::canSee($item)) {
+                continue;
+            }
+
+            if (isset($item['subItems'])) {
+                $item['subItems'] = array_values(
+                    array_filter($item['subItems'], fn ($sub) => self::canSee($sub))
+                );
+
+                if ($item['subItems'] === []) {
+                    continue;
+                }
+            }
+
+            $result[] = $item;
+        }
+
+        return $result;
+    }
+
+    public static function getMainNavItems()
+    {
+        return self::filter(self::mainNavItems());
+    }
+
+    public static function getOthersItems()
+    {
+        return self::filter(self::othersItems());
+    }
+
     public static function getMenuGroups()
     {
-        return [
-            [
-                'title' => 'Menu',
-                'items' => self::getMainNavItems(),
-            ],
-            [
-                'title' => 'Others',
-                'items' => self::getOthersItems(),
-            ],
+        $groups = [
+            ['title' => 'Menu', 'items' => self::getMainNavItems()],
+            ['title' => 'Others', 'items' => self::getOthersItems()],
         ];
+
+        return array_values(array_filter($groups, fn ($g) => $g['items'] !== []));
     }
+
 
     public static function isActive($path)
     {

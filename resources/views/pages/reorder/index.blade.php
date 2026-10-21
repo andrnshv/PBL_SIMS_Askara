@@ -3,6 +3,7 @@
 @section('content')
 @php
     $tanggal = \Carbon\Carbon::now()->locale('id')->translatedFormat('j F Y');
+    $canEditReorder = auth()->user()?->hasRole('staff_pembelian');
 
     $statusLabels = [
         'out' => 'Habis',
@@ -231,8 +232,9 @@
                                     x-model="rows[{{ $i }}].rp"
                                     @input="rows[{{ $i }}].err = ''"
                                     :class="fieldClass(rows[{{ $i }}])"
+                                    @disabled(! $canEditReorder)
                                     aria-label="Reorder point {{ $v['product'] }} {{ $v['variant'] }}"
-                                    class="w-full max-w-[140px] rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#4C8DF6]"
+                                    class="w-full max-w-[140px] rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#4C8DF6] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
                                 >
                                 <p
                                     x-show="rowMessage(rows[{{ $i }}])"
@@ -308,6 +310,7 @@
     </div>
 
     {{-- Aksi simpan (PUT) --}}
+    @if ($canEditReorder)
     <form
         method="POST"
         action="{{ route('reorder.update') }}"
@@ -346,6 +349,11 @@
             </button>
         </div>
     </form>
+    @else
+        <p class="mt-5 text-xs text-slate-400">
+            Hanya Staff Pembelian yang dapat mengubah reorder point.
+        </p>
+    @endif
 
     <p class="mt-6 text-xs text-slate-400">Kuantitas mengikuti satuan setiap varian.</p>
 </div>

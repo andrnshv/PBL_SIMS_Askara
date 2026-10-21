@@ -74,6 +74,7 @@
             </div>
 
             {{-- Tombol Header --}}
+            @if (auth()->user()?->hasRole('admin'))
             <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
                 <a href="{{ route('products.edit', $product->id) }}"
                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
@@ -86,6 +87,7 @@
                     </svg>
                     Edit Produk
                 </a>
+                @endif
 
                 <a href="{{ route('products.index') }}"
                    class="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800">
@@ -319,6 +321,7 @@
                     </div>
                 </div>
 
+                @if (auth()->user()?->hasRole('admin'))
                 <a href="{{ route('products.variants.create', $product->id) }}"
                    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
                     <svg class="h-4 w-4" viewBox="0 0 24 24"
@@ -329,6 +332,7 @@
                     </svg>
                     Tambah Varian
                 </a>
+                @if (auth()->user()?->hasRole('admin'))
             </div>
 
             @if ($variants->isEmpty())
@@ -391,9 +395,11 @@
                                 <th class="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                                     Status
                                 </th>
+                                @if (auth()->user()?->hasRole('admin'))
                                 <th class="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                                     Aksi
                                 </th>
+                                @endif
                             </tr>
                         </thead>
 
@@ -463,6 +469,7 @@
                                     </td>
 
                                     {{-- Aksi Varian --}}
+                                    @if (auth()->user()?->hasRole('admin'))
                                     <td class="whitespace-nowrap px-5 py-4 text-right">
                                         @if ($variant->status !== 'merged')
                                             <div class="flex items-center justify-end gap-2">
@@ -509,6 +516,7 @@
                                             </span>
                                         @endif
                                     </td>
+                                    @endif
                                 </tr>
                             @endforeach
                         </tbody>

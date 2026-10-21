@@ -86,14 +86,7 @@ class ProductController extends Controller
 
         // Sementara: belum ada login, pakai user pertama di tabel users.
         // Saat auth sudah jadi, ganti dengan $request->user()->id
-        $validated['created_by'] = $request->user()?->id
-            ?? User::query()->value('id');
-
-        if (! $validated['created_by']) {
-            return back()
-                ->withInput()
-                ->withErrors(['name' => 'Belum ada data user. Buat user terlebih dahulu.']);
-        }
+        $validated['created_by'] = $request->user()->id;
 
         $product = Product::create($validated);
 
