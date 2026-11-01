@@ -62,6 +62,7 @@
                     'variantId' => $variant->id,
                 ]) }}"
                 method="POST"
+                enctype="multipart/form-data"
                 class="space-y-6 p-6"
             >
                 @csrf
@@ -226,6 +227,56 @@
                             Tidak Aktif
                         </option>
                     </select>
+                </div>
+
+                {{-- Foto varian --}}
+                <div
+                    x-data="{
+                        current: @js(\App\Models\ProductVariant::imageUrl($variant->image_path)),
+                        preview: null,
+                        remove: false,
+                        get src() { return this.preview ?? (this.remove ? null : this.current); }
+                    }"
+                >
+                    <label for="image" class="mb-2 block text-sm font-medium text-gray-700">
+                        Foto Varian <span class="text-xs font-normal text-gray-400">(opsional)</span>
+                    </label>
+
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                            <img x-show="src" x-cloak :src="src" alt="Foto varian"
+                                class="h-full w-full object-cover">
+                            <svg x-show="!src" class="h-8 w-8 text-gray-300" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="1.5"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                <path d="m21 15-5-5L5 21"/>
+                            </svg>
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                            <input id="image" name="image" type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                @change="
+                                    const f = $event.target.files[0];
+                                    preview = f ? URL.createObjectURL(f) : null;
+                                    if (f) remove = false;
+                                "
+                                class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-gray-700 hover:file:bg-gray-200">
+
+                            <p class="mt-1.5 text-xs text-gray-500">
+                                Format JPG, PNG, atau WEBP. Maksimal 2 MB. Pilih file baru untuk mengganti foto.
+                            </p>
+
+                            <label x-show="current && !preview" x-cloak
+                                class="mt-2 inline-flex items-center gap-2 text-sm text-red-600">
+                                <input type="checkbox" name="remove_image" value="1" x-model="remove"
+                                    class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
+                                Hapus foto saat ini
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Informasi Stok --}}

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
+use App\Models\ProductVariant;
 
 class SalesController extends Controller
 {
@@ -27,6 +28,7 @@ class SalesController extends Controller
                 'v.selling_price as price',
                 'v.current_stock as stock',
                 'v.reorder_point as min',
+                'v.image_path',
                 'p.name',
                 'p.category',
             ])
@@ -45,7 +47,7 @@ class SalesController extends Controller
                     'stock' => (int) $product->stock,
                     'min' => (int) $product->min,
                     'category' => $product->category ?: 'Tanpa Kategori',
-                    'image' => null,
+                    'image' => ProductVariant::imageUrl($product->image_path),
                 ];
             });
 

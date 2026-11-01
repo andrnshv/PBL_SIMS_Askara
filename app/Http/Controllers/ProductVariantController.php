@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Support\SupabaseStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ProductVariantController extends Controller
 {
@@ -38,6 +40,7 @@ class ProductVariantController extends Controller
             'selling_price' => ['required', 'numeric', 'min:0'],
             'reorder_point' => ['required', 'integer', 'min:0'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ], [
             'sku.required' => 'SKU wajib diisi.',
             'sku.unique' => 'SKU sudah digunakan oleh varian lain.',
@@ -51,22 +54,33 @@ class ProductVariantController extends Controller
             'reorder_point.min' => 'Reorder point tidak boleh negatif.',
             'status.required' => 'Status varian wajib dipilih.',
             'status.in' => 'Status varian tidak valid.',
+            'image.image' => 'File harus berupa gambar.',
+            'image.mimes' => 'Foto harus berformat JPG, PNG, atau WEBP.',
+            'image.max' => 'Ukuran foto maksimal 2 MB.',
         ]);
 
+        $imagePath = $this->uploadImage($request);
         $now = now();
 
-        DB::table('product_variants')->insert([
-            'product_id' => $product->id,
-            'sku' => trim($validated['sku']),
-            'name' => trim($validated['name']),
-            'unit' => trim($validated['unit']),
-            'selling_price' => $validated['selling_price'],
-            'current_stock' => 0,
-            'reorder_point' => $validated['reorder_point'],
-            'status' => $validated['status'],
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        try {
+            DB::table('product_variants')->insert([
+                'product_id' => $product->id,
+                'sku' => trim($validated['sku']),
+                'name' => trim($validated['name']),
+                'unit' => trim($validated['unit']),
+                'selling_price' => $validated['selling_price'],
+                'current_stock' => 0,
+                'reorder_point' => $validated['reorder_point'],
+                'status' => $validated['status'],
+                'image_path' => $imagePath,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        } catch (\Throwable $e) {
+            // Simpan ke database gagal: hapus foto yang sudah terlanjur diunggah.
+            $this->deleteImage($imagePath);
+            throw $e;
+        }
 
         return redirect()
             ->route('products.show', $product->id)
@@ -132,28 +146,57 @@ class ProductVariantController extends Controller
             'selling_price' => ['required', 'numeric', 'min:0'],
             'reorder_point' => ['required', 'integer', 'min:0'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
+        ], [
+            'image.image' => 'File harus berupa gambar.',
+            'image.mimes' => 'Foto harus berformat JPG, PNG, atau WEBP.',
+            'image.max' => 'Ukuran foto maksimal 2 MB.',
         ]);
 
+        // Tentukan path foto yang tersimpan setelah update:
+        // foto baru -> ganti, centang hapus -> kosongkan, selain itu -> tetap.
+        $oldPath = $variant->image_path;
+        $newPath = $this->uploadImage($request);
+        $imagePath = $oldPath;
+
+        if ($newPath) {
+            $imagePath = $newPath;
+        } elseif ($request->boolean('remove_image')) {
+            $imagePath = null;
+        }
+
         // Perbarui data tanpa mengubah current_stock.
-        DB::table('product_variants')
-            ->where('id', $variantId)
-            ->where('product_id', $id)
-            ->update([
-                'sku' => $validated['sku'],
-                'name' => $validated['name'],
-                'unit' => $validated['unit'],
-                'selling_price' => $validated['selling_price'],
-                'reorder_point' => $validated['reorder_point'],
-                'status' => $validated['status'],
-                'updated_at' => now(),
-            ]);
+        try {
+            DB::table('product_variants')
+                ->where('id', $variantId)
+                ->where('product_id', $id)
+                ->update([
+                    'sku' => $validated['sku'],
+                    'name' => $validated['name'],
+                    'unit' => $validated['unit'],
+                    'selling_price' => $validated['selling_price'],
+                    'reorder_point' => $validated['reorder_point'],
+                    'status' => $validated['status'],
+                    'image_path' => $imagePath,
+                    'updated_at' => now(),
+                ]);
+        } catch (\Throwable $e) {
+            $this->deleteImage($newPath);
+            throw $e;
+        }
+
+        // Foto lama dibuang dari bucket hanya setelah database berhasil diperbarui.
+        if ($oldPath && $oldPath !== $imagePath) {
+            $this->deleteImage($oldPath);
+        }
 
         return redirect()
             ->route('products.show', $id)
             ->with('success', 'Varian produk berhasil diperbarui.');
     }
 
-        public function destroy($id, $variantId)
+    public function destroy($id, $variantId)
     {
         $variant = ProductVariant::query()
             ->where('id', $variantId)
@@ -170,14 +213,49 @@ class ProductVariantController extends Controller
         }
 
         $name = $variant->name;
+        $imagePath = $variant->image_path;
 
         DB::transaction(function () use ($variant) {
             $variant->delete();
         });
 
+        $this->deleteImage($imagePath);
+
         return redirect()
             ->route('products.show', $id)
             ->with('success', 'Varian "' . $name . '" berhasil dihapus.');
+    }
+
+    // Unggah foto ke bucket Supabase. Mengembalikan path, atau null jika tidak ada file.
+    private function uploadImage(Request $request): ?string
+    {
+        if (! $request->hasFile('image')) {
+            return null;
+        }
+
+        try {
+            return SupabaseStorage::upload($request->file('image'));
+        } catch (\Throwable $e) {
+            report($e);
+
+            throw ValidationException::withMessages([
+                'image' => 'Foto gagal diunggah ke penyimpanan. Coba lagi.',
+            ]);
+        }
+    }
+
+    // Hapus foto dari bucket. Kegagalan hanya dicatat, tidak menggagalkan proses utama.
+    private function deleteImage(?string $path): void
+    {
+        if (! $path) {
+            return;
+        }
+
+        try {
+            SupabaseStorage::delete($path);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     // Daftar satuan yang sudah dipakai di database

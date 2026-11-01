@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SupabaseStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
@@ -18,11 +19,26 @@ class ProductVariant extends Model
         'reorder_point',
         'status',
         'merged_into_variant_id',
+        'image_path',
     ];
 
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * URL publik foto dari path di bucket Supabase.
+     *   \App\Models\ProductVariant::imageUrl($variant->image_path)
+     */
+    public static function imageUrl(?string $path): ?string
+    {
+        return SupabaseStorage::url($path);
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return self::imageUrl($this->image_path);
     }
 
     /**

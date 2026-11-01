@@ -415,9 +415,27 @@
 
                                     {{-- Nama Varian --}}
                                     <td class="whitespace-nowrap px-5 py-4">
-                                        <p class="text-sm font-semibold text-gray-800">
-                                            {{ $variant->name }}
-                                        </p>
+                                        @php $variantImage = \App\Models\ProductVariant::imageUrl($variant->image_path); @endphp
+
+                                        <div class="flex items-center gap-3">
+                                            @if ($variantImage)
+                                                <img src="{{ $variantImage }}" alt="{{ $variant->name }}" loading="lazy"
+                                                    class="h-10 w-10 shrink-0 rounded-lg border border-gray-200 object-cover">
+                                            @else
+                                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                        <path d="m21 15-5-5L5 21"/>
+                                                    </svg>
+                                                </div>
+                                            @endif
+
+                                            <p class="text-sm font-semibold text-gray-800">
+                                                {{ $variant->name }}
+                                            </p>
+                                        </div>
                                     </td>
 
                                     {{-- Satuan --}}
