@@ -221,12 +221,23 @@ class SalesController extends Controller
 
     public function history(Request $request)
     {
+        // Tanggal akhir hanya dibandingkan dengan tanggal mulai jika tanggal mulai diisi.
+        $endRules = ['nullable', 'date'];
+
+        if ($request->filled('start')) {
+            $endRules[] = 'after_or_equal:start';
+        }
+
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
             'start' => ['nullable', 'date'],
-            'end' => ['nullable', 'date', 'after_or_equal:start'],
+            'end' => $endRules,
             'sort' => ['nullable', 'in:terbaru,terlama,tertinggi,terendah'],
             'per_page' => ['nullable', 'integer', 'in:10,25,50'],
+        ], [
+            'start.date' => 'Tanggal mulai tidak valid.',
+            'end.date' => 'Tanggal akhir tidak valid.',
+            'end.after_or_equal' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.',
         ]);
 
         $search = trim($validated['q'] ?? '');
@@ -250,8 +261,8 @@ class SalesController extends Controller
         // Pencarian berdasarkan nomor invoice atau nama kasir.
         if ($search !== '') {
             $baseQuery->where(function ($query) use ($search) {
-                $query->where('s.invoice_no', 'like', "%{$search}%")
-                    ->orWhere('u.name', 'like', "%{$search}%");
+                $query->where('s.invoice_no', 'ilike', "%{$search}%")
+                    ->orWhere('u.name', 'ilike', "%{$search}%");
             });
         }
 

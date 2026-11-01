@@ -184,6 +184,34 @@
                 method="GET"
                 action="{{ route('sales.history') }}"
                 class="grid grid-cols-1 gap-4 p-5 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_160px_170px_auto]"
+                x-data="{
+                    start: null,
+                    end: null,
+                    init() {
+                        const opts = {
+                            dateFormat: 'Y-m-d',
+                            altInput: true,
+                            altFormat: 'd M Y',
+                            altInputClass: 'h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20',
+                            maxDate: 'today',
+                            disableMobile: true,
+                        };
+
+                        this.start = flatpickr(this.$refs.start, {
+                            ...opts,
+                            onChange: (dates) => this.end.set('minDate', dates[0] || null),
+                        });
+
+                        this.end = flatpickr(this.$refs.end, {
+                            ...opts,
+                            onChange: (dates) => this.start.set('maxDate', dates[0] || 'today'),
+                        });
+
+                        // Sinkronkan batas saat halaman dibuka dengan filter yang sudah terisi.
+                        if (this.$refs.start.value) this.end.set('minDate', this.$refs.start.value);
+                        if (this.$refs.end.value) this.start.set('maxDate', this.$refs.end.value);
+                    }
+                }"
             >
                 <input
                     type="hidden"
@@ -227,43 +255,46 @@
                 </div>
 
                 {{-- Tanggal mulai --}}
-                <div>
-                    <label
-                        for="start"
-                        class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]"
-                    >
-                        Tanggal mulai
-                    </label>
+                    <div>
+                        <label
+                            for="start"
+                            class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]"
+                        >
+                            Tanggal mulai
+                        </label>
 
-                    <input
-                        type="date"
-                        id="start"
-                        name="start"
-                        value="{{ request('start') }}"
-                        max="{{ request('end') ?: now()->toDateString() }}"
-                        class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
-                    >
-                </div>
+                        <input
+                            type="text"
+                            id="start"
+                            name="start"
+                            x-ref="start"
+                            value="{{ request('start') }}"
+                            placeholder="Pilih tanggal"
+                            autocomplete="off"
+                            class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
+                        >
+                    </div>
 
-                {{-- Tanggal akhir --}}
-                <div>
-                    <label
-                        for="end"
-                        class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]"
-                    >
-                        Tanggal akhir
-                    </label>
+                    {{-- Tanggal akhir --}}
+                    <div>
+                        <label
+                            for="end"
+                            class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]"
+                        >
+                            Tanggal akhir
+                        </label>
 
-                    <input
-                        type="date"
-                        id="end"
-                        name="end"
-                        value="{{ request('end') }}"
-                        min="{{ request('start') }}"
-                        max="{{ now()->toDateString() }}"
-                        class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
-                    >
-                </div>
+                        <input
+                            type="text"
+                            id="end"
+                            name="end"
+                            x-ref="end"
+                            value="{{ request('end') }}"
+                            placeholder="Pilih tanggal"
+                            autocomplete="off"
+                            class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
+                        >
+</div>
 
                 {{-- Pengurutan --}}
                 <div>
@@ -327,19 +358,6 @@
                     </a>
                 </div>
             </form>
-
-            {{-- Informasi filter aktif --}}
-            @if (request()->hasAny(['q', 'start', 'end']))
-                <div class="border-t border-slate-100 bg-blue-50/50 px-5 py-3 text-[11px] text-slate-600">
-                    Menampilkan hasil sesuai filter yang dipilih.
-                    <a
-                        href="{{ route('sales.history') }}"
-                        class="ml-1 font-semibold text-[#4C8DF6] hover:underline"
-                    >
-                        Hapus filter
-                    </a>
-                </div>
-            @endif
 
             {{-- Tabel transaksi --}}
             <div class="overflow-x-auto">
@@ -450,15 +468,6 @@
                                     <p class="mt-1 text-xs text-slate-400">
                                         Belum ada transaksi yang sesuai dengan pencarian atau filter.
                                     </p>
-
-                                    @if (request()->hasAny(['q', 'start', 'end']))
-                                        <a
-                                            href="{{ route('sales.history') }}"
-                                            class="mt-3 inline-block text-xs font-semibold text-[#4C8DF6] hover:underline"
-                                        >
-                                            Reset filter
-                                        </a>
-                                    @endif
                                 </td>
                             </tr>
                         @endforelse
