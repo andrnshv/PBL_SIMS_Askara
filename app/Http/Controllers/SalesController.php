@@ -356,4 +356,43 @@ class SalesController extends Controller
         ]);
     }
 
+    public function detail($id)
+    {
+        // Ambil informasi utama transaksi beserta nama kasir.
+        $sale = DB::table('sales as s')
+            ->join('users as u', 'u.id', '=', 's.created_by')
+            ->where('s.id', $id)
+            ->select([
+                's.id',
+                's.invoice_no',
+                's.sale_date',
+                's.customer_name',
+                's.status',
+                's.total_amount',
+                'u.name as cashier',
+            ])
+            ->first();
+
+        // Jika transaksi tidak ditemukan, tampilkan halaman 404.
+        abort_if(!$sale, 404);
+
+        // Ambil seluruh produk yang tercatat dalam transaksi.
+        $items = DB::table('sale_items as si')
+            ->join('product_variants as pv', 'pv.id', '=', 'si.variant_id')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->where('si.sale_id', $sale->id)
+            ->select([
+                'p.name as product_name',
+                'pv.name as variant_name',
+                'pv.sku',
+                'pv.unit',
+                'si.quantity',
+                'si.unit_price',
+                'si.subtotal',
+            ])
+            ->get();
+
+        return view('pages.sales.detail', compact('sale', 'items'));
+    }
+
 }

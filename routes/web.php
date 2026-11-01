@@ -174,6 +174,10 @@ Route::middleware(['auth', 'role:staff_penjualan'])->group(function () {
     Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
     Route::post('/sales', [SalesController::class, 'store'])->name('sales.store');
     Route::get('/sales/history', [SalesController::class, 'history'])->name('sales.history');
+
+    Route::get('/sales/history/{id}', [SalesController::class, 'detail'])
+    ->whereNumber('id')
+    ->name('sales.detail');
 });
 
 // ================= UBAH REORDER POINT =================
