@@ -240,7 +240,7 @@
                         id="start"
                         name="start"
                         value="{{ request('start') }}"
-                        max="{{ request('end') ?: now()->toDateString() }}"
+                        max="{{ now()->toDateString() }}"
                         class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
                     >
                 </div>
