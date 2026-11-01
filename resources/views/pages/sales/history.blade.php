@@ -385,7 +385,10 @@
                                 {{-- Nomor invoice --}}
                                 <td class="px-3 py-4">
                                     <p class="text-xs font-bold text-[#0A1E45]">
-                                        {{ $t['invoice'] }}
+                                        <a href="{{ route('sales.detail', $t['id']) }}"
+                                            class="font-semibold text-blue-600 hover:text-blue-800 hover:underline">
+                                                {{ $t['invoice'] }}
+                                            </a>
                                     </p>
                                 </td>
 
