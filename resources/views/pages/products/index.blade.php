@@ -30,6 +30,7 @@
         </div>
 
         {{-- Tombol tambah produk --}}
+        @if (auth()->user()?->hasRole('admin'))
         <a
             href="{{ route('products.create') }}"
             class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0A1E45] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#142D5C]"
@@ -49,6 +50,7 @@
             </svg>
             Tambah Produk
         </a>
+        @endif
     </div>
 
     {{-- Notifikasi sukses --}}
@@ -276,6 +278,7 @@
                                         </svg>
                                     </a>
 
+                                    @if (auth()->user()?->hasRole('admin'))
                                     <button
                                         type="button"
                                         @click="
@@ -288,6 +291,7 @@
                                     >
                                         Hapus
                                     </button>
+                                    @endif
                                 </div>
                             </td>
                             </td>

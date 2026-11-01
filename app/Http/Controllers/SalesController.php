@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
+use App\Models\ProductVariant;
 
 class SalesController extends Controller
 {
@@ -27,6 +28,7 @@ class SalesController extends Controller
                 'v.selling_price as price',
                 'v.current_stock as stock',
                 'v.reorder_point as min',
+                'v.image_path',
                 'p.name',
                 'p.category',
             ])
@@ -45,7 +47,7 @@ class SalesController extends Controller
                     'stock' => (int) $product->stock,
                     'min' => (int) $product->min,
                     'category' => $product->category ?: 'Tanpa Kategori',
-                    'image' => null,
+                    'image' => ProductVariant::imageUrl($product->image_path),
                 ];
             });
 
@@ -219,12 +221,23 @@ class SalesController extends Controller
 
     public function history(Request $request)
     {
+        // Tanggal akhir hanya dibandingkan dengan tanggal mulai jika tanggal mulai diisi.
+        $endRules = ['nullable', 'date'];
+
+        if ($request->filled('start')) {
+            $endRules[] = 'after_or_equal:start';
+        }
+
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
             'start' => ['nullable', 'date'],
-            'end' => ['nullable', 'date', 'after_or_equal:start'],
+            'end' => $endRules,
             'sort' => ['nullable', 'in:terbaru,terlama,tertinggi,terendah'],
             'per_page' => ['nullable', 'integer', 'in:10,25,50'],
+        ], [
+            'start.date' => 'Tanggal mulai tidak valid.',
+            'end.date' => 'Tanggal akhir tidak valid.',
+            'end.after_or_equal' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.',
         ]);
 
         $search = trim($validated['q'] ?? '');
@@ -248,8 +261,8 @@ class SalesController extends Controller
         // Pencarian berdasarkan nomor invoice atau nama kasir.
         if ($search !== '') {
             $baseQuery->where(function ($query) use ($search) {
-                $query->where('s.invoice_no', 'like', "%{$search}%")
-                    ->orWhere('u.name', 'like', "%{$search}%");
+                $query->where('s.invoice_no', 'ilike', "%{$search}%")
+                    ->orWhere('u.name', 'ilike', "%{$search}%");
             });
         }
 

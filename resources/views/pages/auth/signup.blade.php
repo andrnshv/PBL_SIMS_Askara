@@ -120,6 +120,30 @@
                                 @enderror
                             </div>
 
+                            {{-- Role --}}
+                            <div>
+                                <label for="role"
+                                    class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                    Role <span class="text-error-500">*</span>
+                                </label>
+
+                                <select
+                                    id="role"
+                                    name="role"
+                                    required
+                                    class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                                >
+                                    <option value="">Pilih role</option>
+                                    @foreach (\App\Models\User::ROLES as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('role') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+
+                                @error('role')
+                                    <p class="mt-1.5 text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
                             {{-- Password --}}
                             <div>
                                 <label for="password"

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SupabaseStorage;    
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -86,14 +87,7 @@ class ProductController extends Controller
 
         // Sementara: belum ada login, pakai user pertama di tabel users.
         // Saat auth sudah jadi, ganti dengan $request->user()->id
-        $validated['created_by'] = $request->user()?->id
-            ?? User::query()->value('id');
-
-        if (! $validated['created_by']) {
-            return back()
-                ->withInput()
-                ->withErrors(['name' => 'Belum ada data user. Buat user terlebih dahulu.']);
-        }
+        $validated['created_by'] = $request->user()->id;
 
         $product = Product::create($validated);
 
@@ -178,10 +172,24 @@ class ProductController extends Controller
 
         $name = $product->name;
 
+        // Ambil path foto varian sebelum varian ikut terhapus (cascade).
+        $imagePaths = $product->variants()
+            ->whereNotNull('image_path')
+            ->pluck('image_path');
+
         // Varian ikut terhapus otomatis (cascade di database).
         DB::transaction(function () use ($product) {
             $product->delete();
         });
+
+        // Bersihkan foto di bucket. Kegagalan hanya dicatat, tidak menggagalkan penghapusan.
+        foreach ($imagePaths as $path) {
+            try {
+                SupabaseStorage::delete($path);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return redirect()
             ->route('products.index')
