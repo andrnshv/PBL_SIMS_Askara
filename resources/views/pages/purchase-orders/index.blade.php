@@ -237,7 +237,6 @@
 
                     <input
                         type="date" id="start" name="start" value="{{ request('start') }}"
-                        max="{{ request('end') }}"
                         class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
                     >
                 </div>
@@ -247,8 +246,7 @@
                     <label for="end" class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]">Sampai tanggal</label>
 
                     <input
-                        type="date" id="end" name="end" value="{{ request('end') }}"
-                        min="{{ request('start') }}"
+                        type="date" id="end" name="end" value="{{ request('end') }}"    
                         class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
                     >
                 </div>

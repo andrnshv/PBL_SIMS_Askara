@@ -296,17 +296,20 @@ class SalesController extends Controller
 
         $baseQuery->orderBy('s.id', 'desc');
 
-        // ID transaksi setelah filter, digunakan untuk menghitung ringkasan.
-        $filteredIds = (clone $baseQuery)->select('s.id');
+           // Query ringkasan harus tanpa ORDER BY (PostgreSQL menolaknya pada count/sum).
+            $statsQuery = (clone $baseQuery)->reorder();
 
-        $stats = [
-            'transactions' => (clone $baseQuery)->count('s.id'),
-            'revenue' => (clone $baseQuery)->sum('s.total_amount') ?? 0,
-            'units' => DB::table('sale_items as si')
-                ->join('sales as sx', 'sx.id', '=', 'si.sale_id')
-                ->whereIn('sx.id', $filteredIds)
-                ->sum('si.quantity'),
-        ];
+            // ID transaksi setelah filter, digunakan untuk menghitung ringkasan.
+            $filteredIds = (clone $statsQuery)->select('s.id');
+
+            $stats = [
+                'transactions' => (clone $statsQuery)->count('s.id'),
+                'revenue' => (clone $statsQuery)->sum('s.total_amount') ?? 0,
+                'units' => DB::table('sale_items as si')
+                    ->join('sales as sx', 'sx.id', '=', 'si.sale_id')
+                    ->whereIn('sx.id', $filteredIds)
+                    ->sum('si.quantity'),
+            ];
 
         // Pagination mempertahankan parameter filter pada URL.
         $transactions = $baseQuery
