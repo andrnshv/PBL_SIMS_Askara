@@ -6,6 +6,12 @@
     {{-- Header --}}
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
+
+            <x-ui.breadcrumb :items="[
+                ['label' => 'Dashboard', 'url' => route('dashboard')],
+                ['label' => 'Penjualan'],
+            ]" class="mb-2" />
+
             <h1 class="text-2xl font-bold text-gray-800 dark:text-white">
                 Transaksi Penjualan
             </h1>

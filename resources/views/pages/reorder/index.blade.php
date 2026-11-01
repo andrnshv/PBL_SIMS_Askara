@@ -46,13 +46,11 @@
     {{-- Header --}}
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <div class="mb-2 flex items-center gap-2 text-xs text-slate-500">
-                <a href="{{ route('dashboard') }}" class="transition hover:text-[#4C8DF6]">Dashboard</a>
-                <span>/</span>
-                <span>Reorder</span>
-                <span>/</span>
-                <span class="font-medium text-[#0A1E45]">Pengaturan</span>
-            </div>
+            <x-ui.breadcrumb :items="[
+                ['label' => 'Dashboard', 'url' => route('dashboard')],
+                ['label' => 'Reorder', 'url' => route('reorder.index')],
+                ['label' => 'Pengaturan'],
+            ]" class="mb-2" />
 
             <h1 class="text-2xl font-bold tracking-tight text-[#0A1E45]">
                 Pengaturan reorder point

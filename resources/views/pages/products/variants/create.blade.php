@@ -10,15 +10,12 @@
         {{-- Header --}}
         <div>
             <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <a href="{{ route('products.index') }}" class="hover:text-teal-700">
-                    Produk
-                </a>
-                <span>/</span>
-                <a href="{{ route('products.show', $product->id) }}" class="hover:text-teal-700">
-                    {{ $product->name }}
-                </a>
-                <span>/</span>
-                <span class="font-medium text-[#0A1E45]">Tambah Varian</span>
+                <x-ui.breadcrumb :items="[
+                    ['label' => 'Dashboard', 'url' => route('dashboard')],
+                    ['label' => 'Produk', 'url' => route('products.index')],
+                    ['label' => $product->name, 'url' => route('products.show', $product->id)],
+                    ['label' => 'Tambah Varian'],
+                ]" class="mb-3" />
             </div>
 
             <h1 class="text-2xl font-bold tracking-tight text-[#0A1E45]">
