@@ -17,7 +17,8 @@
     action="{{ route('stock.store') }}"
     x-data="receiptForm(
         @js($variants),
-        @js($initial)
+        @js($initial),
+        @js($poItems)
     )"
     class="flex h-full flex-col"
 >
@@ -90,6 +91,14 @@
             Periksa varian, satuan, dan jumlah barang sebelum melanjutkan.
         </div>
 
+                {{-- BANNER MODE PO --}}
+        @if ($po)
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] text-amber-800">
+                Penerimaan ini berdasarkan <span class="font-semibold">{{ $po->po_number }}</span>.
+                Hanya varian di PO yang bisa diterima, dan jumlah tidak boleh melebihi sisa pesanan.
+            </div>
+        @endif
+
         {{-- INFORMASI PENERIMAAN --}}
         <section class="rounded-xl border border-slate-200 bg-white p-6">
             <div class="flex items-start justify-between gap-3">
@@ -109,6 +118,35 @@
             </div>
 
             <div class="mt-5 grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-3">
+                                {{-- DASAR PENERIMAAN: tanpa PO atau pilih PO --}}
+                <div class="md:col-span-3">
+                    <label for="source" class="mb-1.5 block text-[11px] text-slate-500">
+                        Dasar penerimaan
+                    </label>
+
+                    <select
+                        id="source"
+                        onchange="window.location = this.value"
+                        class="{{ $input }} border-slate-200 md:max-w-md"
+                    >
+                        <option value="{{ route('stock.incoming.create') }}" @selected(! $po)>
+                            Tanpa PO (penerimaan langsung)
+                        </option>
+
+                        @foreach ($openPos as $p)
+                            <option
+                                value="{{ route('stock.incoming.create', ['po' => $p->id]) }}"
+                                @selected($po && (int) $po->id === (int) $p->id)
+                            >
+                                {{ $p->po_number }} · {{ $p->supplier }} · {{ \Carbon\Carbon::parse($p->order_date)->format('d/m/Y') }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <p class="mt-1 text-[10px] text-slate-400">
+                        Mengganti pilihan akan memuat ulang form. Isian yang belum disimpan akan hilang.
+                    </p>
+                </div>
 
                 {{-- NOMOR PENERIMAAN --}}
                 <div>
@@ -277,6 +315,9 @@
                         <tr class="border-y border-slate-200 bg-slate-50/70 text-[10px] font-semibold text-slate-600">
                             <th class="px-6 py-3">Produk / Varian / SKU</th>
                             <th class="px-3 py-3">Stok saat ini</th>
+                                @if ($po)
+                                    <th class="px-3 py-3">Info PO</th>
+                                @endif
                             <th class="px-3 py-3">Jumlah diterima *</th>
                             <th class="px-3 py-3">Stok setelah simpan</th>
                             <th class="px-6 py-3 text-center">Aksi</th>
@@ -311,6 +352,20 @@
                                     class="px-3 py-4 text-[11px] font-semibold text-slate-700"
                                     x-text="`${fmt(r.stock)} ${r.unit}`"
                                 ></td>
+                                
+                                                                @if ($po)
+                                    <td class="px-3 py-4 text-[11px] text-slate-600">
+                                        <p>Dipesan:
+                                            <span class="font-semibold" x-text="`${fmt(r.po?.ordered)} ${r.unit}`"></span>
+                                        </p>
+                                        <p class="mt-0.5">Sudah diterima:
+                                            <span class="font-semibold" x-text="`${fmt(r.po?.received)} ${r.unit}`"></span>
+                                        </p>
+                                        <p class="mt-0.5">Sisa:
+                                            <span class="font-semibold text-[#4C8DF6]" x-text="`${fmt(r.po?.remaining)} ${r.unit}`"></span>
+                                        </p>
+                                    </td>
+                                @endif
 
                                 <td class="px-3 py-4">
                                     <div class="flex w-[150px]">
@@ -323,7 +378,8 @@
                                             :name="`items[${idx}][qty]`"
                                             placeholder="0"
                                             class="h-10 w-full min-w-0 rounded-l-md border bg-white px-3 text-xs outline-none focus:border-[#4C8DF6]"
-                                            :class="r.qty !== '' && Number(r.qty) < 1 ? 'border-red-400' : 'border-slate-200'"
+                                            :max="r.po ? r.po.remaining : null"
+                                            :class="(r.qty !== '' && (Number(r.qty) < 1 || (r.po && Number(r.qty) > r.po.remaining))) ? 'border-red-400' : 'border-slate-200'"
                                         >
 
                                         <span
@@ -357,7 +413,7 @@
                         </template>
 
                         <tr x-show="rows.length === 0" x-cloak>
-                            <td colspan="5" class="px-6 py-12 text-center text-xs text-slate-400">
+                            <td colspan="{{ $po ? 6 : 5 }}" class="px-6 py-12 text-center text-xs text-slate-400">
                                 Belum ada varian. Klik “Tambah varian” untuk memilih.
                             </td>
                         </tr>
@@ -544,9 +600,12 @@
 </style>
 
 <script>
-    function receiptForm(variants, initial) {
+    function receiptForm(variants, initial, poItems) {
+        poItems = poItems || {};
+
         return {
             variants: Array.isArray(variants) ? variants : [],
+            poItems: poItems,
 
             rows: Object.entries(initial || {})
                 .map(([id, qty]) => {
@@ -555,7 +614,7 @@
                     );
 
                     return variant
-                        ? { ...variant, qty: qty ?? '' }
+                        ? { ...variant, qty: qty ?? '', po: poItems[id] || null }
                         : null;
                 })
                 .filter(Boolean),
@@ -563,12 +622,19 @@
             pickerOpen: false,
             pickerSearch: '',
 
+            // Benar kalau form dibuka dari sebuah PO.
+            get hasPo() {
+                return Object.keys(this.poItems).length > 0;
+            },
+
             get pickerResults() {
                 const query = this.pickerSearch.toLowerCase().trim();
                 const usedIds = this.rows.map(row => Number(row.id));
 
                 return this.variants
                     .filter(variant => !usedIds.includes(Number(variant.id)))
+                    // Mode PO: hanya varian yang ada di PO yang boleh dipilih.
+                    .filter(variant => !this.hasPo || this.poItems[variant.id])
                     .filter(variant => [
                         variant.name,
                         variant.variant,
@@ -593,10 +659,13 @@
                 return this.rows.length > 0 &&
                     this.rows.every(row => {
                         const qty = Number(row.qty);
+                        // Mode PO: jumlah tidak boleh melebihi sisa pesanan.
+                        const withinPo = !row.po || qty <= row.po.remaining;
 
                         return row.qty !== '' &&
                             Number.isInteger(qty) &&
-                            qty > 0;
+                            qty > 0 &&
+                            withinPo;
                     });
             },
 
@@ -616,7 +685,8 @@
 
                 this.rows.push({
                     ...variant,
-                    qty: ''
+                    qty: '',
+                    po: this.poItems[variant.id] || null
                 });
 
                 this.pickerOpen = false;
