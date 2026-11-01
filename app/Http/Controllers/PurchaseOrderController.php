@@ -17,12 +17,19 @@ class PurchaseOrderController extends Controller
 {
     public function index(Request $request)
     {
+
+    $endRules = ['nullable', 'date'];
+
+    if ($request->filled('start')) {
+        $endRules[] = 'after_or_equal:start';
+    }
+
         $validated = $request->validate([
             'q'        => ['nullable', 'string', 'max:100'],
             'supplier' => ['nullable', 'integer'],
             'status'   => ['nullable', 'in:draft,ordered,partial,received,cancelled'],
             'start'    => ['nullable', 'date'],
-            'end'      => ['nullable', 'date', 'after_or_equal:start'],
+            'end'      => $endRules,
             'per_page' => ['nullable', 'integer', 'in:10,25,50'],
         ]);
 
