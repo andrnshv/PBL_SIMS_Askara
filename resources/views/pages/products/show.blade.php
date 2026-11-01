@@ -9,7 +9,7 @@
 
 <div
     class="min-h-screen bg-gray-50/70"
-    x-data="{ confirmDelete: false, deleteUrl: '', deleteName: '', deleteSku: '' }"
+    x-data="{ confirmDelete: false, deleteUrl: '', deleteName: '', deleteSku: '', confirmDeleteProduct: false }"
 >
     <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 
@@ -84,6 +84,22 @@
                         </svg>
                         Edit Produk
                     </a>
+
+                    <button
+                        type="button"
+                        @click="confirmDeleteProduct = true"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
+                    >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M3 6h18"/>
+                            <path d="M8 6V4h8v2"/>
+                            <path d="M19 6l-1 14H6L5 6"/>
+                        </svg>
+                        Hapus Produk
+                    </button>
                 @endif
 
                 <a href="{{ route('products.index') }}"
@@ -569,6 +585,76 @@
         </div>
 
     </div>
+
+    @if (auth()->user()?->hasRole('admin'))
+    {{-- Modal konfirmasi hapus produk --}}
+    <div
+        x-show="confirmDeleteProduct"
+        x-cloak
+        x-transition.opacity
+        @keydown.escape.window="confirmDeleteProduct = false"
+        @click.self="confirmDeleteProduct = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 px-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-product-title"
+    >
+        <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div class="flex items-start gap-4">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M3 6h18"/>
+                        <path d="M8 6V4h8v2"/>
+                        <path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                    </svg>
+                </div>
+
+                <div>
+                    <h3 id="delete-product-title" class="text-base font-bold text-gray-900">
+                        Hapus produk?
+                    </h3>
+
+                    <p class="mt-2 text-sm leading-6 text-gray-600">
+                        Produk
+                        <span class="font-semibold text-gray-900">{{ $product->name }}</span>
+                        @if ($totalVariants > 0)
+                            beserta {{ $totalVariants }} variannya
+                        @endif
+                        akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+            </div>
+
+            <form
+                method="POST"
+                action="{{ route('products.destroy', $product->id) }}"
+                class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+            >
+                @csrf
+                @method('DELETE')
+
+                <button
+                    type="button"
+                    @click="confirmDeleteProduct = false"
+                    class="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+                >
+                    Batal
+                </button>
+
+                <button
+                    type="submit"
+                    class="inline-flex items-center justify-center rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                    Ya, Hapus
+                </button>
+            </form>
+        </div>
+    </div>
+    @endif
 
     {{-- Modal Konfirmasi Hapus Varian --}}
     <div
