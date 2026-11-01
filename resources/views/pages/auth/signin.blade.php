@@ -162,12 +162,8 @@
 
                     {{-- Sign Up Link --}}
                     <div class="mt-5">
-                        <p class="text-center text-sm font-normal text-gray-700 sm:text-start dark:text-gray-400">
-                            Don't have an account?
-                            <a href="{{ route('signup') }}"
-                                class="text-brand-500 hover:text-brand-600 dark:text-brand-400">
-                                Sign Up
-                            </a>
+                        <p class="mt-5 text-center text-sm text-gray-500 sm:text-start dark:text-gray-400">
+                            Belum punya akun? Hubungi admin.
                         </p>
                     </div>
 

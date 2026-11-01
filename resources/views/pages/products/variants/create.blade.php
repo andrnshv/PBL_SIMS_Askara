@@ -68,8 +68,9 @@
 
         {{-- Form --}}
         <form action="{{ route('products.variants.store', $product->id) }}"
-              method="POST"
-              class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            enctype="multipart/form-data"
+            method="POST"
+            class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             @csrf
 
             <div class="border-b border-slate-100 px-5 py-5 sm:px-7">
@@ -209,6 +210,37 @@
                             Tidak Aktif
                         </option>
                     </select>
+                </div>
+                
+                {{-- Foto varian --}}
+                <div class="sm:col-span-2" x-data="{ preview: null }">
+                    <label for="image" class="mb-2 block text-sm font-semibold text-slate-700">
+                        Foto Varian <span class="text-xs font-normal text-slate-400">(opsional)</span>
+                    </label>
+
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                            <img x-show="preview" x-cloak :src="preview" alt="Pratinjau foto"
+                                class="h-full w-full object-cover">
+                            <svg x-show="!preview" class="h-8 w-8 text-slate-300" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="1.5"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                <path d="m21 15-5-5L5 21"/>
+                            </svg>
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                            <input id="image" name="image" type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                @change="const f = $event.target.files[0]; preview = f ? URL.createObjectURL(f) : null"
+                                class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200">
+                            <p class="mt-1.5 text-xs text-slate-400">
+                                Format JPG, PNG, atau WEBP. Maksimal 2 MB.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 

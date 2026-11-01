@@ -12,312 +12,275 @@ use App\Http\Controllers\StockInController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SupplierController;
 
-// ==================================================
-// LOCALE
-// ==================================================
+/*
+| Hak akses (admin selalu lolos semua middleware 'role'):
+| role                              -> semua user login
+| role:staff_penjualan              -> penjualan
+| role:staff_gudang                 -> opname
+| role:staff_gudang,staff_pembelian -> stok masuk / penerimaan barang
+| role:staff_pembelian              -> purchase order, ubah reorder point
+| role:admin                        -> kelola produk & varian, tambah akun
+*/
 
+// ================= LOCALE (publik) =================
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])
     ->name('locale.switch');
 
-// ==================================================
-// DASHBOARD
-// ==================================================
+// ================= AUTENTIKASI =================
+Route::middleware('guest')->group(function () {
+    Route::get('/signin', function () {
+        return view('pages.auth.signin', ['title' => 'Sign In']);
+    })->name('signin');
 
-Route::get('/', [DashboardController::class, 'index'])
-    ->name('dashboard');
+    Route::post('/signin', [AuthController::class, 'login'])
+        ->name('signin.store');
+});
 
-// ==================================================
-// AUTHENTICATION
-// ==================================================
-
-// Halaman login
-Route::get('/signin', function () {
-    return view('pages.auth.signin', [
-        'title' => 'Sign In',
-    ]);
-})->name('signin');
-
-// Route konvensional Laravel untuk redirect middleware auth
 Route::get('/login', function () {
     return redirect()->route('signin');
 })->name('login');
 
-// Proses login
-Route::post('/signin', [AuthController::class, 'login'])
-    ->name('signin.store');
-
-// Halaman registrasi (masih berupa template)
-Route::get('/signup', function () {
-    return view('pages.auth.signup', [
-        'title' => 'Sign Up',
-    ]);
-})->name('signup');
-
-// Proses registrasi
-Route::post('/signup', [AuthController::class, 'register'])
-    ->name('signup.store');
-
-// Proses logout
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
 
-// ==================================================
-// PROFILE
-// ==================================================
+// Tambah akun: hanya admin
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/signup', function () {
+        return view('pages.auth.signup', ['title' => 'Sign Up']);
+    })->name('signup');
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])
-        ->name('profile');
-
-    Route::put('/profile', [ProfileController::class, 'update'])
-        ->name('profile.update');
+    Route::post('/signup', [AuthController::class, 'register'])
+        ->name('signup.store');
 });
 
-// ==================================================
-// GENERAL PAGES
-// ==================================================
+// ================= ADMIN: kelola produk & varian =================
+// (di atas group semua-role agar /products/create tidak tertangkap /products/{id})
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/products/create', [ProductController::class, 'create'])
+        ->name('products.create');
 
-// Calendar
-Route::get('/calendar', function () {
-    return view('pages.calender', [
-        'title' => 'Calendar',
-    ]);
-})->name('calendar');
+    Route::post('/products', [ProductController::class, 'store'])
+        ->name('products.store');
 
-// Form elements
-Route::get('/form-elements', function () {
-    return view('pages.form.form-elements', [
-        'title' => 'Form Elements',
-    ]);
-})->name('form-elements');
+    Route::get('/products/{id}/edit', [ProductController::class, 'edit'])
+        ->whereNumber('id')
+        ->name('products.edit');
 
-// Tables
-Route::get('/basic-tables', function () {
-    return view('pages.tables.basic-tables', [
-        'title' => 'Basic Tables',
-    ]);
-})->name('basic-tables');
+    Route::put('/products/{id}', [ProductController::class, 'update'])
+        ->whereNumber('id')
+        ->name('products.update');
 
-// Blank page
-Route::get('/blank', function () {
-    return view('pages.blank', [
-        'title' => 'Blank',
-    ]);
-})->name('blank');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])
+        ->whereNumber('id')
+        ->name('products.destroy');
 
-// Error 404
-Route::get('/error-404', function () {
-    return view('pages.errors.error-404', [
-        'title' => 'Error 404',
-    ]);
-})->name('error-404');
+    Route::get('/products/{id}/variants/create', [ProductVariantController::class, 'create'])
+        ->whereNumber('id')
+        ->name('products.variants.create');
 
-// Charts
-Route::get('/line-chart', function () {
-    return view('pages.chart.line-chart', [
-        'title' => 'Line Chart',
-    ]);
-})->name('line-chart');
+    Route::post('/products/{id}/variants', [ProductVariantController::class, 'store'])
+        ->whereNumber('id')
+        ->name('products.variants.store');
 
-Route::get('/bar-chart', function () {
-    return view('pages.chart.bar-chart', [
-        'title' => 'Bar Chart',
-    ]);
-})->name('bar-chart');
+    Route::get('/products/{id}/variants/{variantId}/edit', [ProductVariantController::class, 'edit'])
+        ->whereNumber(['id', 'variantId'])
+        ->name('products.variants.edit');
 
-// ==================================================
-// UI ELEMENTS
-// ==================================================
+    Route::put('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'update'])
+        ->whereNumber(['id', 'variantId'])
+        ->name('products.variants.update');
 
-Route::get('/alerts', function () {
-    return view('pages.ui-elements.alerts', [
-        'title' => 'Alerts',
-    ]);
-})->name('alerts');
+    Route::delete('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'destroy'])
+        ->whereNumber(['id', 'variantId'])
+        ->name('products.variants.destroy');
+});
 
-Route::get('/avatars', function () {
-    return view('pages.ui-elements.avatars', [
-        'title' => 'Avatars',
-    ]);
-})->name('avatars');
+// ================= SEMUA ROLE (harus login) =================
+Route::middleware(['auth', 'role'])->group(function () {
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-Route::get('/badge', function () {
-    return view('pages.ui-elements.badges', [
-        'title' => 'Badges',
-    ]);
-})->name('badges');
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-Route::get('/buttons', function () {
-    return view('pages.ui-elements.buttons', [
-        'title' => 'Buttons',
-    ]);
-})->name('buttons');
+    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+    Route::get('/products/{id}', [ProductController::class, 'show'])
+        ->whereNumber('id')
+        ->name('products.show');
 
-Route::get('/image', function () {
-    return view('pages.ui-elements.images', [
-        'title' => 'Images',
-    ]);
-})->name('images');
+    Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
+    Route::get('/stock/history', [StockController::class, 'history'])->name('stock.history');
 
-Route::get('/videos', function () {
-    return view('pages.ui-elements.videos', [
-        'title' => 'Videos',
-    ]);
-})->name('videos');
+    Route::get('/reorder', [ReorderController::class, 'index'])->name('reorder.index');
 
-// ==================================================
-// SALES
-// ==================================================
+    // Halaman template bawaan
+    Route::get('/calendar', function () {
+        return view('pages.calender', ['title' => 'Calendar']);
+    })->name('calendar');
 
-Route::get('/sales', [SalesController::class, 'index'])
-    ->name('sales.index');
+    Route::get('/form-elements', function () {
+        return view('pages.form.form-elements', ['title' => 'Form Elements']);
+    })->name('form-elements');
 
-Route::post('/sales', [SalesController::class, 'store'])
-    ->name('sales.store');
+    Route::get('/basic-tables', function () {
+        return view('pages.tables.basic-tables', ['title' => 'Basic Tables']);
+    })->name('basic-tables');
 
-Route::get('/sales/history', [SalesController::class, 'history'])
-    ->name('sales.history');
+    Route::get('/blank', function () {
+        return view('pages.blank', ['title' => 'Blank']);
+    })->name('blank');
 
-// ==================================================
-// PRODUCTS
-// ==================================================
+    Route::get('/error-404', function () {
+        return view('pages.errors.error-404', ['title' => 'Error 404']);
+    })->name('error-404');
 
-// Produk induk
-Route::get('/products', [ProductController::class, 'index'])
-    ->name('products.index');
+    Route::get('/line-chart', function () {
+        return view('pages.chart.line-chart', ['title' => 'Line Chart']);
+    })->name('line-chart');
 
-Route::get('/products/create', [ProductController::class, 'create'])
-    ->name('products.create');
+    Route::get('/bar-chart', function () {
+        return view('pages.chart.bar-chart', ['title' => 'Bar Chart']);
+    })->name('bar-chart');
 
-Route::post('/products', [ProductController::class, 'store'])
-    ->name('products.store');
+    Route::get('/alerts', function () {
+        return view('pages.ui-elements.alerts', ['title' => 'Alerts']);
+    })->name('alerts');
 
-Route::get('/products/{id}', [ProductController::class, 'show'])
-    ->name('products.show');
+    Route::get('/avatars', function () {
+        return view('pages.ui-elements.avatars', ['title' => 'Avatars']);
+    })->name('avatars');
 
-Route::get('/products/{id}/edit', [ProductController::class, 'edit'])
-    ->name('products.edit');
+    Route::get('/badge', function () {
+        return view('pages.ui-elements.badges', ['title' => 'Badges']);
+    })->name('badges');
 
-Route::put('/products/{id}', [ProductController::class, 'update'])
-    ->name('products.update');
+    Route::get('/buttons', function () {
+        return view('pages.ui-elements.buttons', ['title' => 'Buttons']);
+    })->name('buttons');
 
-Route::delete('/products/{id}', [ProductController::class, 'destroy'])
-    ->name('products.destroy');
+    Route::get('/image', function () {
+        return view('pages.ui-elements.images', ['title' => 'Images']);
+    })->name('images');
 
-// Varian produk
-Route::get('/products/{id}/variants/create', [ProductVariantController::class, 'create'])
-    ->name('products.variants.create');
+    Route::get('/videos', function () {
+        return view('pages.ui-elements.videos', ['title' => 'Videos']);
+    })->name('videos');
+});
 
-Route::post('/products/{id}/variants', [ProductVariantController::class, 'store'])
-    ->name('products.variants.store');
+// ================= PENJUALAN =================
+Route::middleware(['auth', 'role:staff_penjualan'])->group(function () {
+    Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
+    Route::post('/sales', [SalesController::class, 'store'])->name('sales.store');
+    Route::get('/sales/history', [SalesController::class, 'history'])->name('sales.history');
+});
 
-Route::get('/products/{id}/variants/{variantId}/edit', [ProductVariantController::class, 'edit'])
-    ->name('products.variants.edit');
+// ================= UBAH REORDER POINT =================
+Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
+    Route::put('/reorder', [ReorderController::class, 'update'])->name('reorder.update');
+});
 
-Route::put('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'update'])
-    ->name('products.variants.update');
+// ================= STOK MASUK & PENERIMAAN BARANG =================
+Route::middleware(['auth', 'role:staff_gudang,staff_pembelian'])->group(function () {
+    Route::get('/stock/incoming', [StockInController::class, 'create'])
+        ->name('stock.incoming.create');
 
-Route::delete('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'destroy'])
-    ->name('products.variants.destroy');
+    Route::post('/stock/incoming', [StockInController::class, 'store'])
+        ->name('stock.store');
 
-// ==================================================
-// REORDER
-// ==================================================
+    Route::get('/stock/receipts/{id}', [StockInController::class, 'show'])
+        ->whereNumber('id')
+        ->name('stock.receipts.show');
 
-Route::get('/reorder', [ReorderController::class, 'index'])
-    ->name('reorder.index');
+    Route::get('/goods-receipts', [StockInController::class, 'index'])
+        ->name('goods-receipts.index');
+});
 
-Route::put('/reorder', [ReorderController::class, 'update'])
-    ->name('reorder.update');
+// ================= STOCK OPNAME =================
+Route::middleware(['auth', 'role:staff_gudang'])->group(function () {
+    Route::get('/stock/opname', [StockController::class, 'opnameIndex'])
+        ->name('stock.opname');
 
-// ==================================================
-// STOCK
-// ==================================================
+    Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])
+        ->name('stock.opname.create');
 
-// Riwayat stok
-Route::get('/stock', [StockController::class, 'index'])
-    ->name('stock.index');
+    Route::post('/stock/opname', [StockController::class, 'opnameStore'])
+        ->name('stock.opname.store');
 
-Route::get('/stock/history', [StockController::class, 'history'])
-    ->name('stock.history');
+    Route::get('/stock/opname/{id}', [StockController::class, 'opnameShow'])
+        ->whereNumber('id')
+        ->name('stock.opname.show');
 
-// Stok masuk
-Route::get('/stock/incoming', [StockInController::class, 'create'])
-    ->name('stock.incoming.create');
+    Route::get('/stock/opname/{id}/edit', [StockController::class, 'opnameEdit'])
+        ->whereNumber('id')
+        ->name('stock.opname.edit');
 
-Route::post('/stock/incoming', [StockInController::class, 'store'])
-    ->name('stock.store');
+    Route::put('/stock/opname/{id}', [StockController::class, 'opnameUpdate'])
+        ->whereNumber('id')
+        ->name('stock.opname.update');
 
-Route::get('/stock/receipts/{id}', [StockInController::class, 'show'])
-    ->whereNumber('id')
-    ->name('stock.receipts.show');
+    Route::delete('/stock/opname/{id}', [StockController::class, 'opnameDestroy'])
+        ->whereNumber('id')
+        ->name('stock.opname.destroy');
+});
 
-// Stock opname
-Route::get('/stock/opname', [StockController::class, 'opnameIndex'])
-    ->name('stock.opname');
+// ================= PURCHASE ORDER =================
+Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
+    Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])
+        ->name('purchase-orders.index');
 
-Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])
-    ->name('stock.opname.create');
+    Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])
+        ->name('purchase-orders.create');
 
-Route::post('/stock/opname', [StockController::class, 'opnameStore'])
-    ->name('stock.opname.store');
+    Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])
+        ->name('purchase-orders.store');
 
-Route::get('/stock/opname/{id}', [StockController::class, 'opnameShow'])
-    ->whereNumber('id')
-    ->name('stock.opname.show');
+    Route::get('/purchase-orders/{id}', [PurchaseOrderController::class, 'show'])
+        ->whereNumber('id')
+        ->name('purchase-orders.show');
 
-Route::get('/stock/opname/{id}/edit', [StockController::class, 'opnameEdit'])
-    ->whereNumber('id')
-    ->name('stock.opname.edit');
+    Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'])
+        ->whereNumber('id')
+        ->name('purchase-orders.edit');
 
-Route::put('/stock/opname/{id}', [StockController::class, 'opnameUpdate'])
-    ->whereNumber('id')
-    ->name('stock.opname.update');
+    Route::put('/purchase-orders/{id}', [PurchaseOrderController::class, 'update'])
+        ->whereNumber('id')
+        ->name('purchase-orders.update');
 
-Route::delete('/stock/opname/{id}', [StockController::class, 'opnameDestroy'])
-    ->whereNumber('id')
-    ->name('stock.opname.destroy');
+    Route::delete('/purchase-orders/{id}', [PurchaseOrderController::class, 'destroy'])
+        ->whereNumber('id')
+        ->name('purchase-orders.destroy');
 
-// ==================================================
-// PURCHASE ORDERS & GOODS RECEIPTS
-// ==================================================
+    Route::post('/purchase-orders/{id}/send', [PurchaseOrderController::class, 'send'])
+        ->whereNumber('id')
+        ->name('purchase-orders.send');
 
-// Penerimaan barang
-Route::get('/goods-receipts', [StockInController::class, 'index'])
-    ->name('goods-receipts.index');
+    Route::post('/purchase-orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])
+        ->whereNumber('id')
+        ->name('purchase-orders.cancel');
+});
 
-// Purchase orders
-Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])
-    ->name('purchase-orders.index');
+ // ================= MANAJEMEN SUPPLIER =================
+Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
+    Route::get('/suppliers', [SupplierController::class, 'index'])
+        ->name('suppliers.index');
 
-Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])
-    ->name('purchase-orders.create');
+    Route::get('/suppliers/create', [SupplierController::class, 'create'])
+        ->name('suppliers.create');
 
-Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])
-    ->name('purchase-orders.store');
+    Route::post('/suppliers', [SupplierController::class, 'store'])
+        ->name('suppliers.store');
 
-Route::get('/purchase-orders/{id}', [PurchaseOrderController::class, 'show'])
-    ->whereNumber('id')
-    ->name('purchase-orders.show');
+    Route::get('/suppliers/{id}/edit', [SupplierController::class, 'edit'])
+        ->whereNumber('id')
+        ->name('suppliers.edit');
 
-Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'])
-    ->whereNumber('id')
-    ->name('purchase-orders.edit');
+    Route::put('/suppliers/{id}', [SupplierController::class, 'update'])
+        ->whereNumber('id')
+        ->name('suppliers.update');
 
-Route::put('/purchase-orders/{id}', [PurchaseOrderController::class, 'update'])
-    ->whereNumber('id')
-    ->name('purchase-orders.update');
-
-Route::delete('/purchase-orders/{id}', [PurchaseOrderController::class, 'destroy'])
-    ->whereNumber('id')
-    ->name('purchase-orders.destroy');
-
-Route::post('/purchase-orders/{id}/send', [PurchaseOrderController::class, 'send'])
-    ->whereNumber('id')
-    ->name('purchase-orders.send');
-
-Route::post('/purchase-orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])
-    ->whereNumber('id')
-    ->name('purchase-orders.cancel');
+    Route::delete('/suppliers/{id}', [SupplierController::class, 'destroy'])
+        ->whereNumber('id')
+        ->name('suppliers.destroy');
+});

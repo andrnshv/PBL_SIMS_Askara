@@ -1,4 +1,4 @@
-@extends('layouts.app')
+ @extends('layouts.app')
 
 @section('content')
 @php
@@ -9,14 +9,13 @@
 
 <div
     class="min-h-screen bg-gray-50/70"
-    x-data="{ confirmDelete: false, deleteUrl: '', deleteName: '', deleteSku: '' }"
+    x-data="{ confirmDelete: false, deleteUrl: '', deleteName: '', deleteSku: '', confirmDeleteProduct: false }"
 >
     <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 
         {{-- Breadcrumb --}}
         <nav class="flex items-center gap-2 text-sm text-gray-500">
-            <a href="{{ route('products.index') }}"
-               class="transition hover:text-teal-700">
+            <a href="{{ route('products.index') }}" class="transition hover:text-teal-700">
                 Produk
             </a>
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -41,9 +40,7 @@
                 </div>
 
                 <div class="min-w-0">
-                    <p class="text-sm font-medium text-teal-700">
-                        INFORMASI PRODUK
-                    </p>
+                    <p class="text-sm font-medium text-teal-700">INFORMASI PRODUK</p>
 
                     <h1 class="mt-1 break-words text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
                         {{ $product->name }}
@@ -75,17 +72,35 @@
 
             {{-- Tombol Header --}}
             <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
-                <a href="{{ route('products.edit', $product->id) }}"
-                   class="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round"
-                         stroke-linejoin="round">
-                        <path d="m16 4 4 4"/>
-                        <path d="M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>
-                    </svg>
-                    Edit Produk
-                </a>
+                @if (auth()->user()?->hasRole('admin'))
+                    <a href="{{ route('products.edit', $product->id) }}"
+                       class="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <path d="m16 4 4 4"/>
+                            <path d="M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>
+                        </svg>
+                        Edit Produk
+                    </a>
+
+                    <button
+                        type="button"
+                        @click="confirmDeleteProduct = true"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
+                    >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M3 6h18"/>
+                            <path d="M8 6V4h8v2"/>
+                            <path d="M19 6l-1 14H6L5 6"/>
+                        </svg>
+                        Hapus Produk
+                    </button>
+                @endif
 
                 <a href="{{ route('products.index') }}"
                    class="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800">
@@ -113,13 +128,14 @@
                 <p>{{ session('success') }}</p>
             </div>
         @endif
+
         {{-- Notifikasi Gagal --}}
         @if (session('error'))
             <div class="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                     fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
                     <circle cx="12" cy="12" r="9"/>
                     <path d="M12 8v4M12 16h.01"/>
                 </svg>
@@ -319,16 +335,19 @@
                     </div>
                 </div>
 
-                <a href="{{ route('products.variants.create', $product->id) }}"
-                   class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round"
-                         stroke-linejoin="round">
-                        <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                    Tambah Varian
-                </a>
+                {{-- Tombol Tambah Varian hanya untuk Admin --}}
+                @if (auth()->user()?->hasRole('admin'))
+                    <a href="{{ route('products.variants.create', $product->id) }}"
+                       class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Tambah Varian
+                    </a>
+                @endif
             </div>
 
             @if ($variants->isEmpty())
@@ -391,9 +410,12 @@
                                 <th class="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                                     Status
                                 </th>
-                                <th class="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                    Aksi
-                                </th>
+
+                                @if (auth()->user()?->hasRole('admin'))
+                                    <th class="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                        Aksi
+                                    </th>
+                                @endif
                             </tr>
                         </thead>
 
@@ -409,9 +431,27 @@
 
                                     {{-- Nama Varian --}}
                                     <td class="whitespace-nowrap px-5 py-4">
-                                        <p class="text-sm font-semibold text-gray-800">
-                                            {{ $variant->name }}
-                                        </p>
+                                        @php $variantImage = \App\Models\ProductVariant::imageUrl($variant->image_path); @endphp
+
+                                        <div class="flex items-center gap-3">
+                                            @if ($variantImage)
+                                                <img src="{{ $variantImage }}" alt="{{ $variant->name }}" loading="lazy"
+                                                    class="h-10 w-10 shrink-0 rounded-lg border border-gray-200 object-cover">
+                                            @else
+                                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                        <path d="m21 15-5-5L5 21"/>
+                                                    </svg>
+                                                </div>
+                                            @endif
+
+                                            <p class="text-sm font-semibold text-gray-800">
+                                                {{ $variant->name }}
+                                            </p>
+                                        </div>
                                     </td>
 
                                     {{-- Satuan --}}
@@ -463,52 +503,54 @@
                                     </td>
 
                                     {{-- Aksi Varian --}}
-                                    <td class="whitespace-nowrap px-5 py-4 text-right">
-                                        @if ($variant->status !== 'merged')
-                                            <div class="flex items-center justify-end gap-2">
-                                                <a href="{{ route('products.variants.edit', [
-                                                    'id' => $product->id,
-                                                    'variantId' => $variant->id,
-                                                ]) }}"
-                                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50"
-                                                aria-label="Edit varian {{ $variant->name }}">
-                                                    <svg class="h-4 w-4" viewBox="0 0 24 24"
-                                                        fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round"
-                                                        stroke-linejoin="round">
-                                                        <path d="m16 4 4 4"/>
-                                                        <path d="M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>
-                                                    </svg>
-                                                    Edit
-                                                </a>
+                                    @if (auth()->user()?->hasRole('admin'))
+                                        <td class="whitespace-nowrap px-5 py-4 text-right">
+                                            @if ($variant->status !== 'merged')
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <a href="{{ route('products.variants.edit', [
+                                                        'id' => $product->id,
+                                                        'variantId' => $variant->id,
+                                                    ]) }}"
+                                                       class="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50"
+                                                       aria-label="Edit varian {{ $variant->name }}">
+                                                        <svg class="h-4 w-4" viewBox="0 0 24 24"
+                                                             fill="none" stroke="currentColor"
+                                                             stroke-width="2" stroke-linecap="round"
+                                                             stroke-linejoin="round">
+                                                            <path d="m16 4 4 4"/>
+                                                            <path d="M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>
+                                                        </svg>
+                                                        Edit
+                                                    </a>
 
-                                                <button
-                                                    type="button"
-                                                    @click="
-                                                        deleteUrl = '{{ route('products.variants.destroy', [$product->id, $variant->id]) }}';
-                                                        deleteName = @js($variant->name);
-                                                        deleteSku = @js($variant->sku);
-                                                        confirmDelete = true;
-                                                    "
-                                                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                                                    aria-label="Hapus varian {{ $variant->name }}">
-                                                    <svg class="h-4 w-4" viewBox="0 0 24 24"
-                                                        fill="none" stroke="currentColor"
-                                                        stroke-width="2" stroke-linecap="round"
-                                                        stroke-linejoin="round">
-                                                        <path d="M3 6h18"/>
-                                                        <path d="M8 6V4h8v2"/>
-                                                        <path d="M19 6l-1 14H6L5 6"/>
-                                                    </svg>
-                                                    Hapus
-                                                </button>
-                                            </div>
-                                        @else
-                                            <span class="text-xs text-gray-400">
-                                                Tidak tersedia
-                                            </span>
-                                        @endif
-                                    </td>
+                                                    <button
+                                                        type="button"
+                                                        @click="
+                                                            deleteUrl = '{{ route('products.variants.destroy', [$product->id, $variant->id]) }}';
+                                                            deleteName = @js($variant->name);
+                                                            deleteSku = @js($variant->sku);
+                                                            confirmDelete = true;
+                                                        "
+                                                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                                                        aria-label="Hapus varian {{ $variant->name }}">
+                                                        <svg class="h-4 w-4" viewBox="0 0 24 24"
+                                                             fill="none" stroke="currentColor"
+                                                             stroke-width="2" stroke-linecap="round"
+                                                             stroke-linejoin="round">
+                                                            <path d="M3 6h18"/>
+                                                            <path d="M8 6V4h8v2"/>
+                                                            <path d="M19 6l-1 14H6L5 6"/>
+                                                        </svg>
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                            @else
+                                                <span class="text-xs text-gray-400">
+                                                    Tidak tersedia
+                                                </span>
+                                            @endif
+                                        </td>
+                                    @endif
                                 </tr>
                             @endforeach
                         </tbody>
@@ -544,8 +586,77 @@
 
     </div>
 
+    @if (auth()->user()?->hasRole('admin'))
+    {{-- Modal konfirmasi hapus produk --}}
+    <div
+        x-show="confirmDeleteProduct"
+        x-cloak
+        x-transition.opacity
+        @keydown.escape.window="confirmDeleteProduct = false"
+        @click.self="confirmDeleteProduct = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 px-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-product-title"
+    >
+        <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div class="flex items-start gap-4">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M3 6h18"/>
+                        <path d="M8 6V4h8v2"/>
+                        <path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                    </svg>
+                </div>
 
- {{-- Modal konfirmasi hapus varian --}}
+                <div>
+                    <h3 id="delete-product-title" class="text-base font-bold text-gray-900">
+                        Hapus produk?
+                    </h3>
+
+                    <p class="mt-2 text-sm leading-6 text-gray-600">
+                        Produk
+                        <span class="font-semibold text-gray-900">{{ $product->name }}</span>
+                        @if ($totalVariants > 0)
+                            beserta {{ $totalVariants }} variannya
+                        @endif
+                        akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+            </div>
+
+            <form
+                method="POST"
+                action="{{ route('products.destroy', $product->id) }}"
+                class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+            >
+                @csrf
+                @method('DELETE')
+
+                <button
+                    type="button"
+                    @click="confirmDeleteProduct = false"
+                    class="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+                >
+                    Batal
+                </button>
+
+                <button
+                    type="submit"
+                    class="inline-flex items-center justify-center rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                    Ya, Hapus
+                </button>
+            </form>
+        </div>
+    </div>
+    @endif
+
+    {{-- Modal Konfirmasi Hapus Varian --}}
     <div
         x-show="confirmDelete"
         x-cloak
@@ -607,5 +718,5 @@
             </form>
         </div>
     </div>
-</div>   {{-- penutup min-h-screen (yang punya x-data) --}}
+</div>
 @endsection
