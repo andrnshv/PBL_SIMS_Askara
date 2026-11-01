@@ -48,7 +48,7 @@ class SalesController extends Controller
                     'min' => (int) $product->min,
                     'category' => $product->category ?: 'Tanpa Kategori',
                     'image' => ProductVariant::imageUrl($product->image_path),
-                ];php a
+                ];
             });
 
         return view('pages.sales.index', [
