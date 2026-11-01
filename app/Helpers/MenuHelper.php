@@ -39,6 +39,7 @@ class MenuHelper
                 'subItems' => [
                     ['name' => 'Daftar Stok', 'path' => '/stock'],
                     ['name' => 'Stok Masuk', 'path' => '/stock/incoming', 'roles' => ['staff_gudang', 'staff_pembelian']],
+                    ['name' => 'Opname Stok', 'path' => '/stock/opname', 'roles' => ['staff_gudang']],
                 ],
             ],
             [
@@ -82,7 +83,8 @@ class MenuHelper
 
     private static function canSee(array $item): bool
     {
-        $user = auth()->user();
+        /** @var \App\Models\User|null $user */
+        $user = request()->user();
 
         if (! $user) {
             return false;
