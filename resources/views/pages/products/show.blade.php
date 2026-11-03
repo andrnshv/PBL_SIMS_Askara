@@ -18,11 +18,11 @@
             <a href="{{ route('products.index') }}" class="transition hover:text-teal-700">
                 Produk
             </a>
-            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd"
-                      d="M7.21 14.77a.75.75 0 010-1.06L10.94 10 7.21 6.29a.75.75 0 111.06-1.06l4.24 4.24a.75.75 0 010 1.06l-4.24 4.24a.75.75 0 01-1.06 0z"
-                      clip-rule="evenodd" />
-            </svg>
+            <x-ui.breadcrumb :items="[
+                ['label' => 'Dashboard', 'url' => route('dashboard')],
+                ['label' => 'Produk', 'url' => route('products.index')],
+                ['label' => 'Detail Produk'],
+            ]" />
             <span class="font-medium text-gray-800">Detail Produk</span>
         </nav>
 
@@ -84,6 +84,21 @@
                         </svg>
                         Edit Produk
                     </a>
+
+                    @if ($variants->where('status', '!=', 'merged')->count() >= 2)
+                        <a href="{{ route('products.variants.merge.create', $product->id) }}"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-white px-4 py-2.5 text-sm font-semibold text-teal-700 shadow-sm transition hover:bg-teal-50">
+                            <svg class="h-4 w-4" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M6 3v6a6 6 0 0 0 6 6h6"/>
+                                <path d="m15 12 3 3-3 3"/>
+                                <path d="M6 21v-3"/>
+                            </svg>
+                            Gabungkan Varian
+                        </a>
+                    @endif
 
                     <button
                         type="button"

@@ -13,6 +13,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ProductVariantMergeController;
 
 /*
 | Hak akses (admin selalu lolos semua middleware 'role'):
@@ -96,6 +97,14 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'destroy'])
         ->whereNumber(['id', 'variantId'])
         ->name('products.variants.destroy');
+
+        Route::get('/products/{id}/variants/merge', [ProductVariantMergeController::class, 'create'])
+    ->whereNumber('id')
+    ->name('products.variants.merge.create');
+
+    Route::post('/products/{id}/variants/merge', [ProductVariantMergeController::class, 'store'])
+        ->whereNumber('id')
+        ->name('products.variants.merge.store');
 });
 
 // ================= SEMUA ROLE (harus login) =================
@@ -174,6 +183,10 @@ Route::middleware(['auth', 'role:staff_penjualan'])->group(function () {
     Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
     Route::post('/sales', [SalesController::class, 'store'])->name('sales.store');
     Route::get('/sales/history', [SalesController::class, 'history'])->name('sales.history');
+
+    Route::get('/sales/history/{id}', [SalesController::class, 'detail'])
+    ->whereNumber('id')
+    ->name('sales.detail');
 });
 
 // ================= UBAH REORDER POINT =================

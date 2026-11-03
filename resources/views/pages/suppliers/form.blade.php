@@ -8,12 +8,12 @@
     {{-- Header --}}
     <header class="border-b border-slate-200 bg-white px-8 py-5">
         <div>
-            <p class="text-[11px] text-slate-400">
-                Dashboard / Pembelian /
-                <a href="{{ route('suppliers.index') }}" class="hover:text-[#4C8DF6]">
-                    Manajemen Supplier
-                </a>
-            </p>
+            <x-ui.breadcrumb :items="[
+                ['label' => 'Dashboard', 'url' => route('dashboard')],
+                ['label' => 'Pembelian', 'url' => route('purchase-orders.index')],
+                ['label' => 'Manajemen Supplier', 'url' => route('suppliers.index')],
+                ['label' => $title],
+            ]" />
 
             <h1 class="mt-2 text-3xl font-extrabold text-[#0A1E45]">
                 {{ $title }}

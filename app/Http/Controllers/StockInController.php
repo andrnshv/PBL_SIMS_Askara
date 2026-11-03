@@ -108,11 +108,12 @@ class StockInController extends Controller
         ]);
     }
 
-    /** Form stok masuk. Dengan ?po=ID, varian & jumlah terisi dari sisa PO. */
+        /** Form stok masuk. Dengan ?po=ID, varian & jumlah terisi dari sisa PO. */
     public function create(Request $request)
     {
         $po = null;
         $initial = [];
+        $poItems = [];
 
         if ($request->filled('po')) {
             $po = DB::table('purchase_orders')
@@ -126,12 +127,24 @@ class StockInController extends Controller
                     ->with('error', 'PO tidak ditemukan atau belum/sudah tidak bisa menerima barang.');
             }
 
-            $initial = DB::table('purchase_order_items')
+            $poRows = DB::table('purchase_order_items')
                 ->where('purchase_order_id', $po->id)
                 ->whereRaw('qty_ordered > qty_received')
-                ->selectRaw('variant_id, (qty_ordered - qty_received) AS remaining')
-                ->pluck('remaining', 'variant_id')
-                ->all();
+                ->get(['variant_id', 'qty_ordered', 'qty_received']);
+
+            foreach ($poRows as $row) {
+                $remaining = (int) $row->qty_ordered - (int) $row->qty_received;
+
+                // Jumlah awal di form = sisa pesanan.
+                $initial[$row->variant_id] = $remaining;
+
+                // Info PO per varian: dipesan, sudah diterima, sisa.
+                $poItems[$row->variant_id] = [
+                    'ordered' => (int) $row->qty_ordered,
+                    'received' => (int) $row->qty_received,
+                    'remaining' => $remaining,
+                ];
+            }
         }
 
         // Pulihkan jumlah yang diisi apabila validasi gagal.
@@ -176,11 +189,21 @@ class StockInController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        // PO yang masih bisa menerima barang (untuk dropdown "Dasar penerimaan").
+        $openPos = DB::table('purchase_orders as po')
+            ->join('suppliers as s', 's.id', '=', 'po.supplier_id')
+            ->whereIn('po.status', ['ordered', 'partial'])
+            ->orderByDesc('po.order_date')
+            ->orderByDesc('po.id')
+            ->get(['po.id', 'po.po_number', 'po.order_date', 's.name as supplier']);
+
         return view('pages.stock.incoming', [
             'variants' => $variants,
             'initial' => (object) $initial,
+            'poItems' => (object) $poItems,
             'suppliers' => $suppliers,
             'po' => $po,
+            'openPos' => $openPos,
             'warehouses' => [StockController::WAREHOUSE],
             'receiptNumber' => $this->nextReceiptNumber(),
             'officer' => $this->actor()->name,

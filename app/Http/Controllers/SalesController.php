@@ -296,17 +296,20 @@ class SalesController extends Controller
 
         $baseQuery->orderBy('s.id', 'desc');
 
-        // ID transaksi setelah filter, digunakan untuk menghitung ringkasan.
-        $filteredIds = (clone $baseQuery)->select('s.id');
+           // Query ringkasan harus tanpa ORDER BY (PostgreSQL menolaknya pada count/sum).
+            $statsQuery = (clone $baseQuery)->reorder();
 
-        $stats = [
-            'transactions' => (clone $baseQuery)->count('s.id'),
-            'revenue' => (clone $baseQuery)->sum('s.total_amount') ?? 0,
-            'units' => DB::table('sale_items as si')
-                ->join('sales as sx', 'sx.id', '=', 'si.sale_id')
-                ->whereIn('sx.id', $filteredIds)
-                ->sum('si.quantity'),
-        ];
+            // ID transaksi setelah filter, digunakan untuk menghitung ringkasan.
+            $filteredIds = (clone $statsQuery)->select('s.id');
+
+            $stats = [
+                'transactions' => (clone $statsQuery)->count('s.id'),
+                'revenue' => (clone $statsQuery)->sum('s.total_amount') ?? 0,
+                'units' => DB::table('sale_items as si')
+                    ->join('sales as sx', 'sx.id', '=', 'si.sale_id')
+                    ->whereIn('sx.id', $filteredIds)
+                    ->sum('si.quantity'),
+            ];
 
         // Pagination mempertahankan parameter filter pada URL.
         $transactions = $baseQuery
@@ -354,6 +357,45 @@ class SalesController extends Controller
             'sort' => $sort,
             'perPage' => $perPage,
         ]);
+    }
+
+    public function detail($id)
+    {
+        // Ambil informasi utama transaksi beserta nama kasir.
+        $sale = DB::table('sales as s')
+            ->join('users as u', 'u.id', '=', 's.created_by')
+            ->where('s.id', $id)
+            ->select([
+                's.id',
+                's.invoice_no',
+                's.sale_date',
+                's.customer_name',
+                's.status',
+                's.total_amount',
+                'u.name as cashier',
+            ])
+            ->first();
+
+        // Jika transaksi tidak ditemukan, tampilkan halaman 404.
+        abort_if(!$sale, 404);
+
+        // Ambil seluruh produk yang tercatat dalam transaksi.
+        $items = DB::table('sale_items as si')
+            ->join('product_variants as pv', 'pv.id', '=', 'si.variant_id')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->where('si.sale_id', $sale->id)
+            ->select([
+                'p.name as product_name',
+                'pv.name as variant_name',
+                'pv.sku',
+                'pv.unit',
+                'si.quantity',
+                'si.unit_price',
+                'si.subtotal',
+            ])
+            ->get();
+
+        return view('pages.sales.detail', compact('sale', 'items'));
     }
 
 }
