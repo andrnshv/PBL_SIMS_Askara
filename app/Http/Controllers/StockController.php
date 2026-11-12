@@ -551,11 +551,21 @@ class StockController extends Controller
                 $now = now();
 
                 // Kunci semua varian (urut ID) agar stok konsisten.
-                $stocks = DB::table('product_variants')
-                    ->whereIn('id', $items->pluck('variant_id'))
-                    ->orderBy('id')
+                $stocks = DB::table('product_variants as pv')
+                    ->join('products as p', 'p.id', '=', 'pv.product_id')
+                    ->whereIn('pv.id', $items->pluck('variant_id'))
+                    ->where('pv.status', 'active')
+                    ->where('p.status', 'active')
+                    ->whereNull('pv.merged_into_variant_id')
+                    ->orderBy('pv.id')
                     ->lockForUpdate()
-                    ->pluck('current_stock', 'id');
+                    ->pluck('pv.current_stock', 'pv.id');
+
+                if ($stocks->count() !== $items->count()) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Terdapat varian yang sudah tidak aktif, sudah digabung, atau produknya tidak aktif. Silakan periksa kembali daftar varian.',
+                    ]);
+                }
 
                 // Validasi penyelesaian memakai stok terkunci (terbaru).
                 if ($finish) {
@@ -679,6 +689,7 @@ class StockController extends Controller
         $variants = DB::table('product_variants as pv')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
             ->where('pv.status', 'active')
+            ->where('p.status', 'active')
             ->whereNull('pv.merged_into_variant_id')
             ->orderBy('p.name')
             ->orderBy('pv.name')
