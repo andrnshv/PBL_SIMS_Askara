@@ -41,13 +41,21 @@ class ProductVariant extends Model
         return self::imageUrl($this->image_path);
     }
 
+    // Varian ini sudah digabung ke varian lain.
+    public function isMerged(): bool
+    {
+        return $this->status === 'merged'
+            || $this->merged_into_variant_id !== null;
+    }
+
     /**
      * Apakah varian ini sudah punya stok atau riwayat transaksi.
      * Jika ya, varian tidak boleh dihapus.
      */
     public function hasTransactionHistory(): bool
     {
-        return (int) $this->current_stock > 0
+        return $this->isMerged()
+            || (int) $this->current_stock > 0
             || DB::table('stock_movements')->where('variant_id', $this->id)->exists()
             || DB::table('sale_items')->where('variant_id', $this->id)->exists()
             || DB::table('purchase_order_items')->where('variant_id', $this->id)->exists()
