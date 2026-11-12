@@ -39,7 +39,7 @@ class MenuHelper
                 'subItems' => [
                     ['name' => 'Daftar Stok', 'path' => '/stock'],
                     ['name' => 'Stok Masuk', 'path' => '/stock/incoming', 'roles' => ['staff_gudang', 'staff_pembelian']],
-                    ['name' => 'Opname Stok', 'path' => '/stock/opname', 'roles' => ['staff_gudang']],
+                    ['name' => 'Opname Stok', 'path' => '/stock/opname', 'roles' => ['staff_gudang', 'staff_pembelian', 'staff_penjualan'],],
                 ],
             ],
             [

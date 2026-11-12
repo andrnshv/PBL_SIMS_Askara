@@ -210,20 +210,30 @@ Route::middleware(['auth', 'role:staff_gudang,staff_pembelian'])->group(function
         ->name('goods-receipts.index');
 });
 
+
 // ================= STOCK OPNAME =================
-Route::middleware(['auth', 'role:staff_gudang'])->group(function () {
+
+// Daftar dan detail opname: semua role operasional dapat melihat.
+Route::middleware([
+    'auth',
+    'role:staff_gudang,staff_pembelian,staff_penjualan'
+])->group(function () {
     Route::get('/stock/opname', [StockController::class, 'opnameIndex'])
         ->name('stock.opname');
 
+    Route::get('/stock/opname/{id}', [StockController::class, 'opnameShow'])
+        ->whereNumber('id')
+        ->name('stock.opname.show');
+});
+
+// Pengelolaan opname: khusus Admin dan Staff Gudang.
+// Admin otomatis mendapat akses melalui RoleMiddleware.
+Route::middleware(['auth', 'role:staff_gudang'])->group(function () {
     Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])
         ->name('stock.opname.create');
 
     Route::post('/stock/opname', [StockController::class, 'opnameStore'])
         ->name('stock.opname.store');
-
-    Route::get('/stock/opname/{id}', [StockController::class, 'opnameShow'])
-        ->whereNumber('id')
-        ->name('stock.opname.show');
 
     Route::get('/stock/opname/{id}/edit', [StockController::class, 'opnameEdit'])
         ->whereNumber('id')
