@@ -102,6 +102,23 @@ class ProductVariantMergeController extends Controller
                 ]);
             }
 
+            // Satuan harus sama agar stok yang dijumlahkan sepadan (pcs dengan pcs).
+            $unitOf = fn ($v) => mb_strtolower(trim((string) $v->unit));
+
+            $unitMismatch = $rows->only($sourceIds)
+                ->filter(fn ($s) => $unitOf($s) !== $unitOf($target));
+
+            if ($unitMismatch->isNotEmpty()) {
+                $daftar = $unitMismatch
+                    ->map(fn ($s) => $s->name . ' (' . $s->unit . ')')
+                    ->implode(', ');
+
+                throw ValidationException::withMessages([
+                    'source_ids' => 'Satuan varian ' . $daftar
+                        . ' berbeda dengan varian tujuan ' . $target->name . ' (' . $target->unit . ').',
+                ]);
+            }
+
             // PO yang belum selesai masih memakai varian sumber.
             $openPo = DB::table('purchase_order_items as i')
                 ->join('purchase_orders as po', 'po.id', '=', 'i.purchase_order_id')
