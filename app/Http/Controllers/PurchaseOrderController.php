@@ -324,7 +324,18 @@ class PurchaseOrderController extends Controller
             'expected_date' => ['nullable', 'date', 'after_or_equal:order_date'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.variant_id' => ['required', 'integer', 'distinct', 'exists:product_variants,id'],
+                        'items.*.variant_id' => [
+                'required',
+                'integer',
+                'distinct',
+                Rule::exists('product_variants', 'id')->where(
+                    fn ($q) => $q->where('status', 'active')
+                        ->whereNull('merged_into_variant_id')
+                        ->whereIn('product_id', function ($sub) {
+                            $sub->select('id')->from('products')->where('status', 'active');
+                        })
+                ),
+            ],
             'items.*.qty_ordered' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
         ], [
@@ -333,6 +344,7 @@ class PurchaseOrderController extends Controller
             'items.required' => 'Tambahkan minimal satu varian.',
             'items.min' => 'Tambahkan minimal satu varian.',
             'items.*.variant_id.distinct' => 'Varian yang sama tidak boleh dipilih dua kali.',
+            'items.*.variant_id.exists' => 'Ada varian yang tidak aktif, produk nonaktif, atau sudah digabung.',
             'items.*.qty_ordered.required' => 'Jumlah pesanan wajib diisi.',
             'items.*.qty_ordered.min' => 'Jumlah pesanan minimal satu.',
             'items.*.unit_cost.required' => 'Harga beli wajib diisi.',
