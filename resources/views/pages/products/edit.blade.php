@@ -59,27 +59,15 @@
 
         <div class="space-y-6 px-5 py-6 sm:px-7">
 
-            {{-- Nama produk --}}
+            {{-- Nama produk (baca-saja) --}}
             <div>
-                <label for="name" class="mb-2 block text-sm font-semibold text-slate-700">
-                    Nama Produk <span class="text-red-500">*</span>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Nama Produk
                 </label>
-                <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value="{{ old('name', $product->name) }}"
-                    maxlength="255"
-                    required
-                    autofocus
-                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/15 @error('name') border-red-400 @enderror"
-                >
+                <p class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm text-slate-700">{{ $product->name }}</p>
                 <p class="mt-1.5 text-xs text-slate-400">
-                    Masukkan nama produk induk, bukan nama SKU atau varian.
+                    Untuk mengubah nama, gunakan tombol "Ubah Nama" di halaman detail produk.
                 </p>
-                @error('name')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
             </div>
 
             {{-- Kategori --}}

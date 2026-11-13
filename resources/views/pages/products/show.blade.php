@@ -9,7 +9,8 @@
 
 <div
     class="min-h-screen bg-gray-50/70"
-    x-data="{ confirmDelete: false, deleteUrl: '', deleteName: '', deleteSku: '', confirmDeleteProduct: false }"
+    x-data="{ confirmDelete: false, deleteUrl: '', deleteName: '', deleteSku: '', confirmDeleteProduct: false,
+            rename: false, renameUrl: '', renameOld: '', renameName: '' }"
 >
     <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 
@@ -72,6 +73,13 @@
 
             {{-- Tombol Header --}}
             <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
+                @if (auth()->user()?->hasRole('staff_gudang'))
+                    <button type="button"
+                        @click="rename = true; renameUrl = '{{ route('products.rename', $product->id) }}'; renameOld = @js($product->name); renameName = @js($product->name)"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-white px-4 py-2.5 text-sm font-semibold text-teal-700 shadow-sm transition hover:bg-teal-50">
+                        Ubah Nama
+                    </button>
+                @endif
                 @if (auth()->user()?->hasRole('admin'))
                     <a href="{{ route('products.edit', $product->id) }}"
                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">
@@ -155,6 +163,14 @@
                     <path d="M12 8v4M12 16h.01"/>
                 </svg>
                 <p>{{ session('error') }}</p>
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <ul class="list-inside list-disc">
+                    @foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach
+                </ul>
             </div>
         @endif
 
@@ -426,7 +442,7 @@
                                     Status
                                 </th>
 
-                                @if (auth()->user()?->hasRole('admin'))
+                                @if (auth()->user()?->hasRole('staff_gudang'))
                                     <th class="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                                         Aksi
                                     </th>
@@ -518,20 +534,30 @@
                                     </td>
 
                                     {{-- Aksi Varian --}}
-                                    @if (auth()->user()?->hasRole('admin'))
+                                    @if (auth()->user()?->hasRole('staff_gudang'))
                                         <td class="whitespace-nowrap px-5 py-4 text-right">
                                             @if ($variant->status !== 'merged')
                                                 <div class="flex items-center justify-end gap-2">
+
+                                                    {{-- Ubah Nama: Admin & Staf Gudang --}}
+                                                    <button type="button"
+                                                        @click="rename = true; renameUrl = '{{ route('products.variants.rename', [$product->id, $variant->id]) }}'; renameOld = @js($variant->name); renameName = @js($variant->name)"
+                                                        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                                        Ubah Nama
+                                                    </button>
+
+                                                    {{-- Edit & Hapus: khusus Admin --}}
+                                                    @if (auth()->user()?->hasRole('admin'))
                                                     <a href="{{ route('products.variants.edit', [
-                                                        'id' => $product->id,
-                                                        'variantId' => $variant->id,
-                                                    ]) }}"
-                                                       class="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50"
-                                                       aria-label="Edit varian {{ $variant->name }}">
+                                                            'id' => $product->id,
+                                                            'variantId' => $variant->id,
+                                                        ]) }}"
+                                                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50"
+                                                    aria-label="Edit varian {{ $variant->name }}">
                                                         <svg class="h-4 w-4" viewBox="0 0 24 24"
-                                                             fill="none" stroke="currentColor"
-                                                             stroke-width="2" stroke-linecap="round"
-                                                             stroke-linejoin="round">
+                                                            fill="none" stroke="currentColor"
+                                                            stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round">
                                                             <path d="m16 4 4 4"/>
                                                             <path d="M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/>
                                                         </svg>
@@ -549,15 +575,17 @@
                                                         class="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
                                                         aria-label="Hapus varian {{ $variant->name }}">
                                                         <svg class="h-4 w-4" viewBox="0 0 24 24"
-                                                             fill="none" stroke="currentColor"
-                                                             stroke-width="2" stroke-linecap="round"
-                                                             stroke-linejoin="round">
+                                                            fill="none" stroke="currentColor"
+                                                            stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round">
                                                             <path d="M3 6h18"/>
                                                             <path d="M8 6V4h8v2"/>
                                                             <path d="M19 6l-1 14H6L5 6"/>
                                                         </svg>
                                                         Hapus
                                                     </button>
+                                                @endif
+
                                                 </div>
                                             @else
                                                 <span class="text-xs text-gray-400">
@@ -666,6 +694,37 @@
                 >
                     Ya, Hapus
                 </button>
+            </form>
+        </div>
+    </div>
+    @endif
+
+    {{-- Modal Ubah Nama (Admin & Staf Gudang) --}}
+    @if (auth()->user()?->hasRole('staff_gudang'))
+    <div x-show="rename" x-cloak x-transition.opacity
+         @keydown.escape.window="rename = false" @click.self="rename = false"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 px-4">
+        <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 class="text-base font-bold text-gray-900">Ubah Nama</h3>
+            <p class="mt-1 text-sm text-gray-500">Nama saat ini: <span class="font-semibold text-gray-800" x-text="renameOld"></span></p>
+
+            <form method="POST" :action="renameUrl" class="mt-4 space-y-4">
+                @csrf
+                @method('PATCH')
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Nama baru <span class="text-red-500">*</span></label>
+                    <input type="text" name="name" x-model="renameName" maxlength="255" required
+                           class="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100">
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Alasan (opsional)</label>
+                    <input type="text" name="reason" maxlength="255" placeholder="Contoh: koreksi salah ketik"
+                           class="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100">
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" @click="rename = false" class="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">Batal</button>
+                    <button type="submit" class="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800">Simpan</button>
+                </div>
             </form>
         </div>
     </div>

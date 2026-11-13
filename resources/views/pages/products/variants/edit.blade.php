@@ -78,20 +78,15 @@
                     >
                 </div>
 
-                {{-- Nama Varian --}}
+                {{-- Nama Varian (baca-saja) --}}
                 <div>
-                    <label for="name" class="mb-2 block text-sm font-medium text-gray-700">
-                        Nama Varian <span class="text-red-500">*</span>
+                    <label class="mb-2 block text-sm font-medium text-gray-700">
+                        Nama Varian
                     </label>
-
-                    <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value="{{ old('name', $variant->name) }}"
-                        required
-                        class="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-                    >
+                    <p class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">{{ $variant->name }}</p>
+                    <p class="mt-1.5 text-xs text-gray-500">
+                        Untuk mengubah nama, gunakan tombol "Ubah Nama" di halaman detail produk.
+                    </p>
                 </div>
 
                 {{-- Satuan --}}
