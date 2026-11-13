@@ -15,17 +15,11 @@
     <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 
         {{-- Breadcrumb --}}
-        <nav class="flex items-center gap-2 text-sm text-gray-500">
-            <a href="{{ route('products.index') }}" class="transition hover:text-teal-700">
-                Produk
-            </a>
             <x-ui.breadcrumb :items="[
                 ['label' => 'Dashboard', 'url' => route('dashboard')],
                 ['label' => 'Produk', 'url' => route('products.index')],
                 ['label' => 'Detail Produk'],
             ]" />
-            <span class="font-medium text-gray-800">Detail Produk</span>
-        </nav>
 
         {{-- Header --}}
         <div class="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
@@ -614,6 +608,42 @@
                 </div>
             @endif
         </section>
+
+        <section class="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+        <div class="border-b border-gray-100 px-5 py-4 sm:px-6">
+            <h2 class="font-semibold text-gray-900">Riwayat Perubahan Nama</h2>
+        </div>
+        @if ($renameLogs->isEmpty())
+            <p class="px-6 py-8 text-center text-sm text-gray-500">Belum ada perubahan nama.</p>
+        @else
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-100 text-sm">
+                    <thead class="bg-gray-50/80 text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="px-5 py-3 text-left">Waktu</th>
+                            <th class="px-5 py-3 text-left">Jenis</th>
+                            <th class="px-5 py-3 text-left">Nama Lama</th>
+                            <th class="px-5 py-3 text-left">Nama Baru</th>
+                            <th class="px-5 py-3 text-left">Oleh</th>
+                            <th class="px-5 py-3 text-left">Alasan</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($renameLogs as $log)
+                            <tr>
+                                <td class="whitespace-nowrap px-5 py-3">{{ \Carbon\Carbon::parse($log->changed_at)->format('d M Y, H:i') }}</td>
+                                <td class="px-5 py-3">{{ $log->entity_type === 'product' ? 'Produk' : 'Varian' }}</td>
+                                <td class="px-5 py-3">{{ $log->old_name }}</td>
+                                <td class="px-5 py-3 font-semibold">{{ $log->new_name }}</td>
+                                <td class="px-5 py-3">{{ $log->user_name }}</td>
+                                <td class="px-5 py-3 text-gray-500">{{ $log->reason ?: '-' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
 
         {{-- Footer --}}
         <div class="flex items-center justify-center gap-2 pb-2 text-xs text-gray-400">
