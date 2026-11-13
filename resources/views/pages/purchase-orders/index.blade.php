@@ -34,9 +34,11 @@
     <header class="border-b border-slate-200 bg-white px-8 py-5">
         <div class="flex items-start justify-between gap-4">
             <div>
-                <p class="text-[11px] text-slate-400">
-                    Dashboard / Pembelian
-                </p>
+
+                <x-ui.breadcrumb :items="[
+                    ['label' => 'Dashboard', 'url' => route('dashboard')],
+                    ['label' => 'Pembelian'],
+                ]" />
 
                 <h1 class="mt-2 text-3xl font-extrabold text-[#0A1E45]">
                     Purchase Order
@@ -192,6 +194,33 @@
                 method="GET"
                 action="{{ route('purchase-orders.index') }}"
                 class="grid grid-cols-1 gap-4 p-5 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_180px_140px_140px_170px_auto]"
+                x-data="{
+                    start: null,
+                    end: null,
+                    init() {
+                        const opts = {
+                            dateFormat: 'Y-m-d',
+                            altInput: true,
+                            altFormat: 'd M Y',
+                            altInputClass: 'h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20',
+                            disableMobile: true,
+                        };
+
+                        this.start = flatpickr(this.$refs.start, {
+                            ...opts,
+                            onChange: (dates) => this.end.set('minDate', dates[0] || null),
+                        });
+
+                        this.end = flatpickr(this.$refs.end, {
+                            ...opts,
+                            onChange: (dates) => this.start.set('maxDate', dates[0] || null),
+                        });
+
+                        // Sinkronkan batas saat halaman dibuka dengan filter yang sudah terisi.
+                        if (this.$refs.start.value) this.end.set('minDate', this.$refs.start.value);
+                        if (this.$refs.end.value) this.start.set('maxDate', this.$refs.end.value);
+                    }
+                }"
             >
                 <input type="hidden" name="per_page" value="{{ $perPage }}">
 
@@ -232,24 +261,30 @@
                 </div>
 
                 {{-- Tanggal mulai --}}
-                <div>
-                    <label for="start" class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]">Dari tanggal</label>
+                    <div>
+                        <label for="start" class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]">Dari tanggal</label>
 
-                    <input
-                        type="date" id="start" name="start" value="{{ request('start') }}"
-                        class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
-                    >
-                </div>
+                        <input
+                            type="text" id="start" name="start" x-ref="start"
+                            value="{{ request('start') }}"
+                            placeholder="Pilih tanggal"
+                            autocomplete="off"
+                            class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
+                        >
+                    </div>
 
-                {{-- Tanggal akhir --}}
-                <div>
-                    <label for="end" class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]">Sampai tanggal</label>
+                    {{-- Tanggal akhir --}}
+                    <div>
+                        <label for="end" class="mb-1.5 block text-[11px] font-medium text-[#4C8DF6]">Sampai tanggal</label>
 
-                    <input
-                        type="date" id="end" name="end" value="{{ request('end') }}"    
-                        class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
-                    >
-                </div>
+                        <input
+                            type="text" id="end" name="end" x-ref="end"
+                            value="{{ request('end') }}"
+                            placeholder="Pilih tanggal"
+                            autocomplete="off"
+                            class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
+                        >
+                    </div>
 
                 {{-- Status --}}
                 <div>

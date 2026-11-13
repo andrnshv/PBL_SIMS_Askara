@@ -32,9 +32,13 @@
     <header class="border-b border-slate-200 bg-white px-8 py-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <p class="text-[11px] text-slate-400">
-                    Dashboard / Pembelian / {{ $po ? 'Ubah Draft' : 'Buat PO' }}
-                </p>
+
+                <x-ui.breadcrumb :items="[
+                    ['label' => 'Dashboard', 'url' => route('dashboard')],
+                    ['label' => 'Pembelian', 'url' => route('purchase-orders.index')],
+                    ['label' => $po ? 'Ubah Draft' : 'Buat PO'],
+                ]" />
+
                 <h1 class="mt-2 text-3xl font-extrabold text-[#0A1E45]">
                     {{ $po ? 'Ubah Draft PO' : 'Buat Purchase Order' }}
                 </h1>
@@ -100,25 +104,52 @@
 
                 <div>
                     <label for="order_date" class="{{ $label }}">Tanggal PO *</label>
-                    <input type="date" id="order_date" name="order_date" required
-                           value="{{ old('order_date', $po->order_date ?? now()->toDateString()) }}"
-                           class="{{ $input }} {{ $errors->has('order_date') ? 'border-red-400' : 'border-slate-200' }}">
+
+                    <div class="relative">
+                        <input
+                            type="text"
+                            id="order_date"
+                            name="order_date"
+                            required
+                            readonly
+                            data-datepicker
+                            value="{{ old('order_date', $po->order_date ?? now()->toDateString()) }}"
+                            placeholder="Pilih tanggal PO"
+                            class="{{ $input }} cursor-pointer pr-10 {{ $errors->has('order_date') ? 'border-red-400' : 'border-slate-200' }}"
+                        >
+
+                        <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                    d="M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>
+                            </svg>
+                        </span>
+                    </div>
                 </div>
 
                 <div>
                     <label for="expected_date" class="{{ $label }}">Estimasi tiba</label>
-                    <input type="date" id="expected_date" name="expected_date"
-                           value="{{ old('expected_date', $po->expected_date ?? '') }}"
-                           class="{{ $input }} {{ $errors->has('expected_date') ? 'border-red-400' : 'border-slate-200' }}">
-                </div>
 
-                <div class="md:col-span-4">
-                    <label for="notes" class="{{ $label }}">Catatan</label>
-                    <textarea id="notes" name="notes" rows="2" maxlength="1000"
-                              class="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-[#4C8DF6] focus:ring-2 focus:ring-[#4C8DF6]/20"
-                              placeholder="Catatan untuk supplier (opsional)">{{ old('notes', $po->notes ?? '') }}</textarea>
+                    <div class="relative">
+                        <input
+                            type="text"
+                            id="expected_date"
+                            name="expected_date"
+                            readonly
+                            data-datepicker
+                            value="{{ old('expected_date', $po->expected_date ?? '') }}"
+                            placeholder="Pilih estimasi tiba"
+                            class="{{ $input }} cursor-pointer pr-10 {{ $errors->has('expected_date') ? 'border-red-400' : 'border-slate-200' }}"
+                        >
+
+                        <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                    d="M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>
+                            </svg>
+                        </span>
+                    </div>
                 </div>
-            </div>
         </section>
 
         <section class="rounded-xl border border-slate-200 bg-white p-6">
@@ -239,5 +270,17 @@
             },
         };
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+    flatpickr('[data-datepicker]', {
+        dateFormat: 'Y-m-d',
+        altInput: true,
+        altFormat: 'd M Y',
+        altInputClass: '{{ $input }} cursor-pointer',
+        allowInput: false,
+        disableMobile: true,
+        monthSelectorType: 'static',
+    });
+});
 </script>
 @endsection

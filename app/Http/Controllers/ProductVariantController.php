@@ -203,6 +203,15 @@ class ProductVariantController extends Controller
             ->where('product_id', $id)
             ->firstOrFail();
 
+        if ($variant->isMerged()) {
+            return redirect()
+                ->route('products.show', $id)
+                ->with(
+                    'error',
+                    'Varian "' . $variant->name . '" sudah digabungkan ke varian lain sehingga tidak dapat dihapus. Riwayatnya dipertahankan.'
+                );
+        }
+
         if ($variant->hasTransactionHistory()) {
             return redirect()
                 ->route('products.show', $id)

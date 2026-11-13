@@ -7,18 +7,12 @@
         {{-- Header --}}
         <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <p class="text-sm font-medium text-teal-700">
-                    Manajemen Produk
-                </p>
-
-                <h1 class="mt-1 text-2xl font-bold text-gray-900">
-                    Edit Varian Produk
-                </h1>
-
-                <p class="mt-2 text-sm text-gray-500">
-                    Perbarui informasi varian dari produk
-                    {{ $product->name }}.
-                </p>
+                <x-ui.breadcrumb :items="[
+                    ['label' => 'Dashboard', 'url' => route('dashboard')],
+                    ['label' => 'Produk', 'url' => route('products.index')],
+                    ['label' => $product->name, 'url' => route('products.show', $product->id)],
+                    ['label' => 'Edit Varian'],
+                ]" />
             </div>
 
             <a

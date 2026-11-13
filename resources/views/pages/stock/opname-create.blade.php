@@ -27,9 +27,12 @@
     <header class="border-b border-slate-200 bg-white px-8 py-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <p class="text-[11px] text-slate-400">
-                    Dashboard / Stok / Stok Opname / Tambah Opname
-                </p>
+                <x-ui.breadcrumb :items="[
+                    ['label' => 'Dashboard', 'url' => route('dashboard')],
+                    ['label' => 'Stok', 'url' => route('stock.index')],
+                    ['label' => 'Stok Opname', 'url' => route('stock.opname')],
+                    ['label' => 'Tambah Opname'],
+                ]" />
 
                 <h1 class="mt-2 text-3xl font-extrabold text-[#0A1E45]">
                     Form Stok Opname

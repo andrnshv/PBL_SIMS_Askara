@@ -14,6 +14,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ProductRenameController;
+use App\Http\Controllers\ProductVariantMergeController;
 
 /*
 | Hak akses (admin selalu lolos semua middleware 'role'):
@@ -97,6 +98,14 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/products/{id}/variants/{variantId}', [ProductVariantController::class, 'destroy'])
         ->whereNumber(['id', 'variantId'])
         ->name('products.variants.destroy');
+
+        Route::get('/products/{id}/variants/merge', [ProductVariantMergeController::class, 'create'])
+    ->whereNumber('id')
+    ->name('products.variants.merge.create');
+
+    Route::post('/products/{id}/variants/merge', [ProductVariantMergeController::class, 'store'])
+        ->whereNumber('id')
+        ->name('products.variants.merge.store');
 });
 
 // ================= SEMUA ROLE (harus login) =================
@@ -175,6 +184,10 @@ Route::middleware(['auth', 'role:staff_penjualan'])->group(function () {
     Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
     Route::post('/sales', [SalesController::class, 'store'])->name('sales.store');
     Route::get('/sales/history', [SalesController::class, 'history'])->name('sales.history');
+
+    Route::get('/sales/history/{id}', [SalesController::class, 'detail'])
+    ->whereNumber('id')
+    ->name('sales.detail');
 });
 
 // ================= UBAH REORDER POINT =================
@@ -211,19 +224,28 @@ Route::middleware(['auth', 'role:staff_gudang'])->group(function () {
 });
 
 // ================= STOCK OPNAME =================
-Route::middleware(['auth', 'role:staff_gudang'])->group(function () {
+
+// Daftar dan detail opname: semua role operasional dapat melihat.
+Route::middleware([
+    'auth',
+    'role:staff_gudang,staff_pembelian,staff_penjualan'
+])->group(function () {
     Route::get('/stock/opname', [StockController::class, 'opnameIndex'])
         ->name('stock.opname');
 
+    Route::get('/stock/opname/{id}', [StockController::class, 'opnameShow'])
+        ->whereNumber('id')
+        ->name('stock.opname.show');
+});
+
+// Pengelolaan opname: khusus Admin dan Staff Gudang.
+// Admin otomatis mendapat akses melalui RoleMiddleware.
+Route::middleware(['auth', 'role:staff_gudang'])->group(function () {
     Route::get('/stock/opname/create', [StockController::class, 'opnameCreate'])
         ->name('stock.opname.create');
 
     Route::post('/stock/opname', [StockController::class, 'opnameStore'])
         ->name('stock.opname.store');
-
-    Route::get('/stock/opname/{id}', [StockController::class, 'opnameShow'])
-        ->whereNumber('id')
-        ->name('stock.opname.show');
 
     Route::get('/stock/opname/{id}/edit', [StockController::class, 'opnameEdit'])
         ->whereNumber('id')
