@@ -6,9 +6,11 @@
 @section('content')
 <div class="min-h-full bg-[#EEF2FB]">
     <header class="border-b border-slate-200 bg-white px-8 py-5">
-        <p class="text-[11px] text-slate-400">
-            Dashboard / Stok / Riwayat
-        </p>
+        <x-ui.breadcrumb :items="[
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Stok', 'url' => route('stock.index')],
+            ['label' => 'Riwayat'],
+        ]" />
 
         <h1 class="mt-2 text-3xl font-extrabold text-[#0A1E45]">
             Riwayat Pergerakan Stok

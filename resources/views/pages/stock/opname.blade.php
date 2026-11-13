@@ -35,9 +35,11 @@
     <header class="border-b border-slate-200 bg-white px-8 py-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <p class="text-[11px] text-slate-400">
-                    Dashboard / Stok / Opname Stok
-                </p>
+                <x-ui.breadcrumb :items="[
+                    ['label' => 'Dashboard', 'url' => route('dashboard')],
+                    ['label' => 'Stok', 'url' => route('stock.index')],
+                    ['label' => 'Opname Stok'],
+                ]" />
 
                 <h1 class="mt-2 text-3xl font-extrabold text-[#0A1E45]">
                     Opname Stok
@@ -48,11 +50,13 @@
                 </p>
             </div>
 
-            <a href="{{ route('stock.opname.create') }}"
-               class="flex items-center gap-2 rounded-md bg-[#4C8DF6] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#3b7ae0]">
-                <span class="text-base leading-none">+</span>
-                Buat Opname
-            </a>
+            @if ($canManageOpname)
+                <a href="{{ route('stock.opname.create') }}"
+                class="flex items-center gap-2 rounded-md bg-[#4C8DF6] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#3b7ae0]">
+                    <span class="text-base leading-none">+</span>
+                    Buat Opname
+                </a>
+            @endif
         </div>
     </header>
 
@@ -98,30 +102,32 @@
                 </p>
             </div>
 
-            {{-- Draft --}}
-            <div class="rounded-xl border border-slate-200 bg-white p-5">
-                <div class="flex items-center justify-between">
-                    <p class="text-[11px] text-slate-500">Draft</p>
+            @if ($canManageOpname)
+                {{-- Draft --}}
+                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[11px] text-slate-500">Draft</p>
 
-                    <svg class="h-4 w-4 text-amber-500"
-                         fill="none"
-                         viewBox="0 0 24 24"
-                         stroke="currentColor"
-                         stroke-width="1.8">
-                        <path stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
+                        <svg class="h-4 w-4 text-amber-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="1.8">
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+
+                    <p class="mt-2 text-2xl font-extrabold text-amber-600">
+                        {{ number_format($tabCounts['draft'], 0, ',', '.') }} dokumen
+                    </p>
+
+                    <p class="mt-1 text-[11px] text-[#4C8DF6]">
+                        Menunggu pemeriksaan atau penyelesaian
+                    </p>
                 </div>
-
-                <p class="mt-2 text-2xl font-extrabold text-amber-600">
-                    {{ number_format($tabCounts['draft'], 0, ',', '.') }} dokumen
-                </p>
-
-                <p class="mt-1 text-[11px] text-[#4C8DF6]">
-                    Menunggu pemeriksaan atau penyelesaian
-                </p>
-            </div>
+            @endif
 
             {{-- Selesai --}}
             <div class="rounded-xl border border-slate-200 bg-white p-5">
@@ -260,13 +266,15 @@
                     </span>
                 </a>
 
-                <a href="{{ route('stock.opname', array_merge(request()->query(), ['status' => 'draft', 'page' => 1])) }}"
-                   class="border-b-2 py-3 text-xs font-semibold transition {{ $status === 'draft' ? 'border-[#4C8DF6] text-[#4C8DF6]' : 'border-transparent text-slate-500 hover:text-[#0A1E45]' }}">
-                    Draft
-                    <span class="ml-1 rounded bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700">
-                        {{ $tabCounts['draft'] }}
-                    </span>
-                </a>
+                @if ($canManageOpname)
+                    <a href="{{ route('stock.opname', array_merge(request()->query(), ['status' => 'draft', 'page' => 1])) }}"
+                    class="border-b-2 py-3 text-xs font-semibold transition {{ $status === 'draft' ? 'border-[#4C8DF6] text-[#4C8DF6]' : 'border-transparent text-slate-500 hover:text-[#0A1E45]' }}">
+                        Draft
+                        <span class="ml-1 rounded bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700">
+                            {{ $tabCounts['draft'] }}
+                        </span>
+                    </a>
+                @endif
 
                 <a href="{{ route('stock.opname', array_merge(request()->query(), ['status' => 'selesai', 'page' => 1])) }}"
                    class="border-b-2 py-3 text-xs font-semibold transition {{ $status === 'selesai' ? 'border-[#4C8DF6] text-[#4C8DF6]' : 'border-transparent text-slate-500 hover:text-[#0A1E45]' }}">
@@ -347,7 +355,7 @@
                                         {{ $statusBadge[$o['status']]['label'] }}
                                     </span>
 
-                                    @if ($o['status'] === 'draft')
+                                    @if ($canManageOpname && $o['status'] === 'draft')
                                         <p class="mt-1 text-[10px] text-slate-400">
                                             Belum diposting
                                         </p>
@@ -360,7 +368,7 @@
 
                                 {{-- Aksi --}}
                                 <td class="whitespace-nowrap px-5 py-3.5">
-                                    @if ($o['status'] === 'draft')
+                                    @if ($canManageOpname && $o['status'] === 'draft')
                                         <a href="{{ route('stock.opname.edit', $o['id']) }}"
                                            class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4C8DF6] hover:underline">
                                             Lanjutkan
@@ -511,7 +519,7 @@
                       d="M12 8h.01M11 12h1v4h1"/>
             </svg>
 
-            Data pada halaman ini masih berupa ilustrasi untuk kebutuhan tampilan.
+            Data opname ditampilkan berdasarkan pencatatan aktual.
             Draft tidak mengubah stok. Stok dan riwayat pergerakan baru dicatat saat opname diselesaikan.
         </p>
 

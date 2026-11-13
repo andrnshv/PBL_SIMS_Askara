@@ -315,10 +315,21 @@ class StockController extends Controller
         $end = $validated['end'] ?? null;
         $perPage = (int) ($validated['per_page'] ?? 10);
 
-        // Filter periode + pencarian (dipakai tabel dan kartu hitungan tab).
+        // Filter periode + pencarian.
+        $user = $request->user();
+
+        $canManageOpname = $user->hasRole('staff_gudang');
+
         $base = DB::table('stock_opnames as o')
-            ->join('users as u', 'u.id', '=', 'o.performed_by')
-            ->whereIn('o.status', ['draft', 'completed']);
+            ->join('users as u', 'u.id', '=', 'o.performed_by');
+
+        if ($canManageOpname) {
+            // Admin dan Staff Gudang dapat melihat draft dan selesai.
+            $base->whereIn('o.status', ['draft', 'completed']);
+        } else {
+            // Staff Pembelian dan Penjualan hanya melihat opname selesai.
+            $base->where('o.status', 'completed');
+        }
 
         if ($start) {
             $base->whereDate('o.opname_date', '>=', $start);
@@ -393,7 +404,8 @@ class StockController extends Controller
             'status',
             'start',
             'end',
-            'perPage'
+            'perPage',
+            'canManageOpname'
         ));
     }
 
@@ -415,7 +427,7 @@ class StockController extends Controller
         return view('pages.stock.opname-create', $this->opnameFormData($opname));
     }
 
-    public function opnameShow(int $id)
+    public function opnameShow(Request $request, int $id)
     {
         $opname = DB::table('stock_opnames as o')
             ->join('users as u', 'u.id', '=', 'o.performed_by')
@@ -425,7 +437,13 @@ class StockController extends Controller
         abort_if(! $opname, 404);
 
         if ($opname->status === 'draft') {
-            return redirect()->route('stock.opname.edit', $id);
+            if ($request->user()->hasRole('staff_gudang')) {
+                return redirect()->route('stock.opname.edit', $id);
+            }
+
+            return redirect()
+                ->route('stock.opname')
+                ->with('error', 'Draft opname tidak dapat diakses.');
         }
 
         $items = DB::table('stock_opname_items as i')
@@ -533,11 +551,21 @@ class StockController extends Controller
                 $now = now();
 
                 // Kunci semua varian (urut ID) agar stok konsisten.
-                $stocks = DB::table('product_variants')
-                    ->whereIn('id', $items->pluck('variant_id'))
-                    ->orderBy('id')
+                $stocks = DB::table('product_variants as pv')
+                    ->join('products as p', 'p.id', '=', 'pv.product_id')
+                    ->whereIn('pv.id', $items->pluck('variant_id'))
+                    ->where('pv.status', 'active')
+                    ->where('p.status', 'active')
+                    ->whereNull('pv.merged_into_variant_id')
+                    ->orderBy('pv.id')
                     ->lockForUpdate()
-                    ->pluck('current_stock', 'id');
+                    ->pluck('pv.current_stock', 'pv.id');
+
+                if ($stocks->count() !== $items->count()) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Terdapat varian yang sudah tidak aktif, sudah digabung, atau produknya tidak aktif. Silakan periksa kembali daftar varian.',
+                    ]);
+                }
 
                 // Validasi penyelesaian memakai stok terkunci (terbaru).
                 if ($finish) {
@@ -661,6 +689,7 @@ class StockController extends Controller
         $variants = DB::table('product_variants as pv')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
             ->where('pv.status', 'active')
+            ->where('p.status', 'active')
             ->whereNull('pv.merged_into_variant_id')
             ->orderBy('p.name')
             ->orderBy('pv.name')

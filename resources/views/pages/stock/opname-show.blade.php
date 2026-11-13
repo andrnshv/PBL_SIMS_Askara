@@ -9,9 +9,12 @@
 
 <div class="min-h-full bg-[#EEF2FB]">
     <header class="border-b border-slate-200 bg-white px-8 py-5">
-        <p class="text-[11px] text-slate-400">
-            Dashboard / Stok / Stok Opname / {{ $opname->opname_no }}
-        </p>
+        <x-ui.breadcrumb :items="[
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Stok', 'url' => route('stock.index')],
+            ['label' => 'Stok Opname', 'url' => route('stock.opname')],
+            ['label' => $opname->opname_no],
+        ]" />
 
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-3xl font-extrabold text-[#0A1E45]">

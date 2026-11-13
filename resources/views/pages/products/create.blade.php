@@ -8,23 +8,11 @@
     {{-- Header halaman --}}
     <div class="mb-6">
         <div class="mb-2 flex items-center gap-2 text-xs text-slate-500">
-            <a href="{{ url('/dashboard') }}"
-               class="transition hover:text-[#4C8DF6]">
-                Dashboard
-            </a>
-
-            <span>/</span>
-
-            <a href="{{ route('products.index') }}"
-               class="transition hover:text-[#4C8DF6]">
-                Produk
-            </a>
-
-            <span>/</span>
-
-            <span class="font-medium text-[#0A1E45]">
-                Tambah Produk
-            </span>
+            <x-ui.breadcrumb :items="[
+                ['label' => 'Dashboard', 'url' => route('dashboard')],
+                ['label' => 'Produk', 'url' => route('products.index')],
+                ['label' => 'Tambah Produk'],
+            ]" class="mb-2" />
         </div>
 
         <h1 class="text-2xl font-bold tracking-tight text-[#0A1E45]">
