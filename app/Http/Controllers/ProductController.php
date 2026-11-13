@@ -111,7 +111,14 @@ class ProductController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('pages.products.show', compact('product', 'variants'));
+        $renameLogs = DB::table('product_rename_logs as l')
+            ->join('users as u', 'u.id', '=', 'l.changed_by')
+            ->where('l.product_id', $id)
+            ->orderByDesc('l.changed_at')
+            ->select('l.*', 'u.name as user_name')
+            ->get();
+
+        return view('pages.products.show', compact('product', 'variants', 'renameLogs'));
     }
 
     public function edit($id)
@@ -127,24 +134,14 @@ class ProductController extends Controller
         $product = Product::findOrFail($id);
 
         $request->merge([
-            'name'     => trim((string) $request->input('name')),
             'category' => $this->normalizeCategory($request->input('category')),
         ]);
 
         $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('products', 'name')->ignore($product->id),
-            ],
             'category'    => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'status'      => ['required', Rule::in(['active', 'inactive'])],
         ], [
-            'name.required'   => 'Nama produk wajib diisi.',
-            'name.unique'     => 'Nama produk sudah digunakan.',
-            'name.max'        => 'Nama produk maksimal 255 karakter.',
             'category.max'    => 'Kategori maksimal 255 karakter.',
             'status.required' => 'Status produk wajib dipilih.',
             'status.in'       => 'Status produk tidak valid.',

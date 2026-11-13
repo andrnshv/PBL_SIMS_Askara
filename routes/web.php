@@ -13,6 +13,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ProductRenameController;
 
 /*
 | Hak akses (admin selalu lolos semua middleware 'role'):
@@ -195,6 +196,18 @@ Route::middleware(['auth', 'role:staff_gudang,staff_pembelian'])->group(function
 
     Route::get('/goods-receipts', [StockInController::class, 'index'])
         ->name('goods-receipts.index');
+});
+
+// ================= UBAH NAMA PRODUK/VARIAN: Admin & Staf Gudang =================
+// Admin otomatis lolos lewat RoleMiddleware
+Route::middleware(['auth', 'role:staff_gudang'])->group(function () {
+    Route::patch('/products/{id}/rename', [ProductRenameController::class, 'product'])
+        ->whereNumber('id')
+        ->name('products.rename');
+
+    Route::patch('/products/{id}/variants/{variantId}/rename', [ProductRenameController::class, 'variant'])
+        ->whereNumber(['id', 'variantId'])
+        ->name('products.variants.rename');
 });
 
 // ================= STOCK OPNAME =================
