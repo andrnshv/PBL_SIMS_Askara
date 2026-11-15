@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use App\Models\ProductVariant;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class SalesController extends Controller
 {
@@ -357,6 +358,155 @@ class SalesController extends Controller
             'sort' => $sort,
             'perPage' => $perPage,
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $endRules = ['nullable', 'date'];
+
+        if ($request->filled('start')) {
+            $endRules[] = 'after_or_equal:start';
+        }
+
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'start' => ['nullable', 'date'],
+            'end' => $endRules,
+            'sort' => ['nullable', 'in:terbaru,terlama,tertinggi,terendah'],
+        ], [
+            'start.date' => 'Tanggal mulai tidak valid.',
+            'end.date' => 'Tanggal akhir tidak valid.',
+            'end.after_or_equal' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.',
+        ]);
+
+        $search = trim($validated['q'] ?? '');
+        $start = $validated['start'] ?? null;
+        $end = $validated['end'] ?? null;
+        $sort = $validated['sort'] ?? 'terbaru';
+
+        // Query utama transaksi.
+        $baseQuery = DB::table('sales as s')
+            ->leftJoin('users as u', 'u.id', '=', 's.created_by')
+            ->select([
+                's.id',
+                's.invoice_no',
+                's.sale_date',
+                's.total_amount',
+                's.status',
+                'u.name as cashier',
+            ]);
+
+        // Filter pencarian.
+        if ($search !== '') {
+            $baseQuery->where(function ($query) use ($search) {
+                $query->where('s.invoice_no', 'ilike', "%{$search}%")
+                    ->orWhere('u.name', 'ilike', "%{$search}%");
+            });
+        }
+
+        // Filter tanggal.
+        if ($start) {
+            $baseQuery->whereDate('s.sale_date', '>=', $start);
+        }
+
+        if ($end) {
+            $baseQuery->whereDate('s.sale_date', '<=', $end);
+        }
+
+        // Pengurutan.
+        switch ($sort) {
+            case 'terlama':
+                $baseQuery->orderBy('s.sale_date', 'asc');
+                $sortLabel = 'Terlama';
+                break;
+
+            case 'tertinggi':
+                $baseQuery->orderBy('s.total_amount', 'desc');
+                $sortLabel = 'Total tertinggi';
+                break;
+
+            case 'terendah':
+                $baseQuery->orderBy('s.total_amount', 'asc');
+                $sortLabel = 'Total terendah';
+                break;
+
+            default:
+                $baseQuery->orderBy('s.sale_date', 'desc');
+                $sortLabel = 'Terbaru';
+                break;
+        }
+
+        $baseQuery->orderBy('s.id', 'desc');
+
+        // Query ringkasan tanpa ORDER BY.
+        $statsQuery = (clone $baseQuery)->reorder();
+
+        $filteredIds = (clone $statsQuery)->select('s.id');
+
+        $stats = [
+            'transactions' => (clone $statsQuery)->count('s.id'),
+            'revenue' => (clone $statsQuery)->sum('s.total_amount') ?? 0,
+            'units' => DB::table('sale_items as si')
+                ->join('sales as sx', 'sx.id', '=', 'si.sale_id')
+                ->whereIn('sx.id', $filteredIds)
+                ->sum('si.quantity'),
+        ];
+
+        $totalRows = $stats['transactions'];
+
+        // Detail PDF dibatasi maksimal 50 transaksi.
+        $sales = $baseQuery->limit(50)->get();
+
+        // Hitung jenis item dan total unit setiap transaksi.
+        $pageIds = $sales->pluck('id')->all();
+
+        $itemStats = collect();
+
+        if (!empty($pageIds)) {
+            $itemStats = DB::table('sale_items')
+                ->select('sale_id')
+                ->selectRaw('COUNT(DISTINCT variant_id) as items')
+                ->selectRaw('COALESCE(SUM(quantity), 0) as units')
+                ->whereIn('sale_id', $pageIds)
+                ->groupBy('sale_id')
+                ->get()
+                ->keyBy('sale_id');
+        }
+
+        // Sesuaikan struktur data dengan template PDF.
+        $transactions = $sales->map(function ($sale) use ($itemStats) {
+            $items = $itemStats->get($sale->id);
+
+            return [
+                'id' => $sale->id,
+                'invoice' => $sale->invoice_no,
+                'datetime' => Carbon::parse($sale->sale_date),
+                'cashier' => $sale->cashier ?? 'Pengguna tidak ditemukan',
+                'items' => (int) ($items->items ?? 0),
+                'units' => (int) ($items->units ?? 0),
+                'total' => (float) $sale->total_amount,
+                'status' => $sale->status,
+            ];
+        });
+
+        $generatedAt = Carbon::now()->format('d/m/Y H:i');
+        $generatedBy = $request->user()?->name ?? '-';
+
+        $pdf = Pdf::loadView('reports.sales-report-pdf', [
+            'stats' => $stats,
+            'transactions' => $transactions,
+            'totalRows' => $totalRows,
+            'start' => $start,
+            'end' => $end,
+            'search' => $search,
+            'sortLabel' => $sortLabel,
+            'generatedAt' => $generatedAt,
+            'generatedBy' => $generatedBy,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download(
+            'laporan-penjualan-' . Carbon::now()->format('Ymd-His') . '.pdf'
+        );
     }
 
     public function detail($id)

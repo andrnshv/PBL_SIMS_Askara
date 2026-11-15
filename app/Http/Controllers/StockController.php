@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class StockController extends Controller
 {
@@ -293,6 +294,174 @@ class StockController extends Controller
         ]);
     }
 
+    public function exportHistoryPdf(Request $request)
+    {
+        // Validasi filter yang sama dengan halaman Stock History.
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'type' => ['nullable', 'in:masuk,keluar,penyesuaian'],
+            'start' => ['nullable', 'date'],
+            'end' => ['nullable', 'date', 'after_or_equal:start'],
+            'per_page' => ['nullable', 'integer', 'in:10,25,50'],
+            'variant' => ['nullable', 'integer', 'exists:product_variants,id'],
+        ]);
+
+        $q = trim($validated['q'] ?? '');
+        $variantId = $validated['variant'] ?? null;
+        $type = $validated['type'] ?? '';
+        $start = $validated['start'] ?? null;
+        $end = $validated['end'] ?? null;
+
+        // Query menggunakan sumber data yang sama dengan Stock History.
+        $query = DB::table('stock_movements as sm')
+            ->join('product_variants as v', 'v.id', '=', 'sm.variant_id')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->leftJoin('users as u', 'u.id', '=', 'sm.created_by')
+            ->leftJoin('stock_receipts as sr', function ($join) {
+                $join->on('sr.id', '=', 'sm.reference_id')
+                    ->where('sm.reference_type', '=', 'stock_receipt');
+            })
+            ->leftJoin('stock_opnames as so', function ($join) {
+                $join->on('so.id', '=', 'sm.reference_id')
+                    ->where('sm.reference_type', '=', 'stock_opname');
+            })
+            ->select([
+                'sr.receipt_no',
+                'so.opname_no',
+                'sm.id',
+                'sm.movement_type',
+                'sm.qty_change',
+                'sm.stock_before',
+                'sm.stock_after',
+                'sm.reference_type',
+                'sm.reference_id',
+                'sm.created_at',
+                'p.name as product_name',
+                'v.name as variant_name',
+                'v.sku',
+                'v.unit',
+                'u.name as officer',
+            ]);
+
+        // Filter varian.
+        if ($variantId) {
+            $query->where('sm.variant_id', $variantId);
+        }
+
+        // Filter periode.
+        if ($start) {
+            $query->whereDate('sm.created_at', '>=', $start);
+        }
+
+        if ($end) {
+            $query->whereDate('sm.created_at', '<=', $end);
+        }
+
+        // Filter pencarian.
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('p.name', 'ilike', "%{$q}%")
+                    ->orWhere('v.name', 'ilike', "%{$q}%")
+                    ->orWhere('v.sku', 'ilike', "%{$q}%")
+                    ->orWhere('sm.reference_type', 'ilike', "%{$q}%")
+                    ->orWhereRaw(
+                        'CAST(sm.reference_id AS TEXT) ILIKE ?',
+                        ["%{$q}%"]
+                    );
+            });
+        }
+
+        // Filter jenis pergerakan.
+        $query->when($type !== '', function ($sub) use ($type) {
+            if ($type === 'masuk') {
+                $sub->where('sm.qty_change', '>', 0);
+            } elseif ($type === 'keluar') {
+                $sub->where('sm.qty_change', '<', 0);
+            } else {
+                $sub->where('sm.movement_type', 'ilike', '%adjustment%');
+            }
+        });
+
+        // Ringkasan dihitung dari seluruh data sesuai filter.
+        $totalRows = (clone $query)->count('sm.id');
+
+        $incomingCount = (clone $query)
+            ->where('sm.qty_change', '>', 0)
+            ->count('sm.id');
+
+        $outgoingCount = (clone $query)
+            ->where('sm.qty_change', '<', 0)
+            ->count('sm.id');
+
+        $adjustmentCount = (clone $query)
+            ->where('sm.movement_type', 'ilike', '%adjustment%')
+            ->count('sm.id');
+
+        // Detail PDF dibatasi maksimal 50 movement terbaru.
+        $movements = (clone $query)
+            ->orderByDesc('sm.created_at')
+            ->orderByDesc('sm.id')
+            ->limit(50)
+            ->get()
+            ->map(function ($m) {
+                $isAdjustment = str_contains(
+                    strtolower($m->movement_type),
+                    'adjustment'
+                );
+
+                $typeLabel = $isAdjustment
+                    ? 'penyesuaian'
+                    : ($m->qty_change > 0 ? 'masuk' : 'keluar');
+
+                return [
+                    'datetime' => Carbon::parse($m->created_at),
+                    'type' => $typeLabel,
+                    'delta' => (int) $m->qty_change,
+                    'before' => (int) $m->stock_before,
+                    'after' => (int) $m->stock_after,
+                    'name' => $m->product_name,
+                    'variant' => $m->variant_name,
+                    'sku' => $m->sku,
+                    'unit' => $m->unit,
+                    'ref' => match (true) {
+                        (bool) $m->receipt_no => $m->receipt_no,
+                        (bool) $m->opname_no => $m->opname_no,
+                        (bool) $m->reference_type =>
+                            $m->reference_type . ' #' . $m->reference_id,
+                        default => '-',
+                    },
+                    'officer' => $m->officer ?? '-',
+                ];
+            });
+
+        // Informasi varian jika filter varian digunakan.
+        $variantInfo = $variantId
+            ? DB::table('product_variants as v')
+                ->join('products as p', 'p.id', '=', 'v.product_id')
+                ->where('v.id', $variantId)
+                ->selectRaw("p.name || ' - ' || v.name as label")
+                ->value('label')
+            : null;
+
+        // Membentuk dokumen PDF.
+        $pdf = Pdf::loadView('reports.stock-movement-pdf', [
+            'movements' => $movements,
+            'totalRows' => $totalRows,
+            'incomingCount' => $incomingCount,
+            'outgoingCount' => $outgoingCount,
+            'generatedBy' => $request->user()?->name ?? '-',
+            'adjustmentCount' => $adjustmentCount,
+            'variantInfo' => $variantInfo,
+            'start' => $start,
+            'end' => $end,
+            'q' => $q,
+            'type' => $type,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('laporan-stock-movement.pdf');
+    }
+
     /* =====================================================================
      |  STOK OPNAME
      |  Tabel: stock_opnames (header) + stock_opname_items (detail)
@@ -468,6 +637,73 @@ class StockController extends Controller
             'items' => $items,
             'warehouse' => self::WAREHOUSE,
         ]);
+    }
+
+
+    public function exportOpnamePdf(int $id)
+    {
+        // Mengambil informasi utama Stock Opname.
+        $opname = DB::table('stock_opnames as o')
+            ->join('users as u', 'u.id', '=', 'o.performed_by')
+            ->where('o.id', $id)
+            ->first(['o.*', 'u.name as officer']);
+
+        abort_if(! $opname, 404);
+
+        // PDF hanya boleh dibuat untuk opname yang sudah selesai.
+        abort_unless(
+            $opname->status === 'completed',
+            403,
+            'Laporan PDF hanya tersedia untuk Stock Opname yang sudah selesai.'
+        );
+
+        // Mengambil seluruh detail pemeriksaan.
+        $items = DB::table('stock_opname_items as i')
+            ->join('product_variants as v', 'v.id', '=', 'i.variant_id')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('i.opname_id', $id)
+            ->orderBy('p.name')
+            ->orderBy('v.name')
+            ->get([
+                'p.name as product_name',
+                'v.name as variant_name',
+                'v.sku',
+                'v.unit',
+                'i.system_qty',
+                'i.physical_qty',
+                'i.difference',
+                'i.reason',
+            ]);
+
+        // Menghitung ringkasan hasil Stock Opname.
+        $totalVariants = $items->count();
+
+        $matchedCount = $items
+            ->filter(fn ($item) => (int) $item->difference === 0)
+            ->count();
+
+        $surplusCount = $items
+            ->filter(fn ($item) => (int) $item->difference > 0)
+            ->count();
+
+        $shortageCount = $items
+            ->filter(fn ($item) => (int) $item->difference < 0)
+            ->count();
+
+        // Membentuk dokumen PDF.
+        $pdf = Pdf::loadView('reports.stock-opname-pdf', [
+            'opname' => $opname,
+            'items' => $items,
+            'warehouse' => self::WAREHOUSE,
+            'totalVariants' => $totalVariants,
+            'matchedCount' => $matchedCount,
+            'surplusCount' => $surplusCount,
+            'shortageCount' => $shortageCount,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download(
+            'laporan-stock-opname-' . $id . '.pdf'
+        );
     }
 
     public function opnameStore(Request $request)

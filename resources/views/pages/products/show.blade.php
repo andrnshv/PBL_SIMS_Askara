@@ -66,7 +66,7 @@
             </div>
 
             {{-- Tombol Header --}}
-            <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
+            <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                 @if (auth()->user()?->hasRole('staff_gudang'))
                     <button type="button"
                         @click="rename = true; renameUrl = '{{ route('products.rename', $product->id) }}'; renameOld = @js($product->name); renameName = @js($product->name)"

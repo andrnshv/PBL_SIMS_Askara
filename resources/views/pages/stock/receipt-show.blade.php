@@ -14,17 +14,25 @@
         ]" />
 
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-            <h1 class="text-3xl font-extrabold text-[#0A1E45]">{{ $receipt->receipt_no }}</h1>
+            <h1 class="text-3xl font-extrabold text-[#0A1E45]">
+                {{ $receipt->receipt_no }}
+            </h1>
 
-            <div class="flex gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ route('stock.receipts.export.pdf', $receipt->id) }}"
+                class="rounded-md bg-[#0A1E45] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#163663]">
+                    Export PDF
+                </a>
+
                 @if ($receipt->purchase_order_id)
                     <a href="{{ route('purchase-orders.show', $receipt->purchase_order_id) }}"
-                       class="rounded-md border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-[#0A1E45] hover:bg-slate-50">
+                    class="rounded-md border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-[#0A1E45] hover:bg-slate-50">
                         Lihat PO {{ $receipt->po_number }}
                     </a>
                 @endif
+
                 <a href="{{ route('stock.index') }}"
-                   class="rounded-md bg-[#4C8DF6] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#3b7ae0]">
+                class="rounded-md bg-[#4C8DF6] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#3b7ae0]">
                     Ke Daftar Stok
                 </a>
             </div>

@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * Stok masuk = dokumen penerimaan barang (stock_receipts + stock_receipt_items).
@@ -108,7 +109,56 @@ class StockInController extends Controller
         ]);
     }
 
-        /** Form stok masuk. Dengan ?po=ID, varian & jumlah terisi dari sisa PO. */
+    public function exportReceiptPdf(int $id)
+    {
+        // Mengambil informasi utama penerimaan barang.
+        $receipt = DB::table('stock_receipts as r')
+            ->leftJoin('suppliers as s', 's.id', '=', 'r.supplier_id')
+            ->leftJoin('purchase_orders as po', 'po.id', '=', 'r.purchase_order_id')
+            ->join('users as u', 'u.id', '=', 'r.received_by')
+            ->where('r.id', $id)
+            ->first([
+                'r.*',
+                's.name as supplier',
+                'po.po_number',
+                'u.name as officer',
+            ]);
+
+        abort_if(! $receipt, 404);
+
+        // Mengambil seluruh detail barang yang diterima.
+        $items = DB::table('stock_receipt_items as i')
+            ->join('product_variants as v', 'v.id', '=', 'i.variant_id')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('i.receipt_id', $id)
+            ->orderBy('p.name')
+            ->orderBy('v.name')
+            ->get([
+                'p.name as product_name',
+                'v.name as variant_name',
+                'v.sku',
+                'v.unit',
+                'i.qty_received',
+            ]);
+
+        // Menghitung jumlah baris barang.
+        $totalLines = $items->count();
+
+        // Membentuk dokumen PDF.
+        $pdf = Pdf::loadView('reports.stock-receipt-pdf', [
+            'receipt' => $receipt,
+            'items' => $items,
+            'warehouse' => StockController::WAREHOUSE,
+            'totalLines' => $totalLines,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download(
+            'bukti-penerimaan-' . $receipt->receipt_no . '.pdf'
+        );
+    }
+
+    /** Form stok masuk. Dengan ?po=ID, varian & jumlah terisi dari sisa PO. */
     public function create(Request $request)
     {
         $po = null;

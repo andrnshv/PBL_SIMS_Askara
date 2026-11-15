@@ -17,15 +17,24 @@
         ]" />
 
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-            <h1 class="text-3xl font-extrabold text-[#0A1E45]">
-                Hasil Opname {{ $opname->opname_no }}
-            </h1>
+    <h1 class="text-3xl font-extrabold text-[#0A1E45]">
+        Hasil Opname {{ $opname->opname_no }}
+    </h1>
+
+    <div class="flex flex-wrap items-center gap-2">
+            @if ($opname->status === 'completed')
+                <a href="{{ route('stock.opname.export.pdf', $opname->id) }}"
+                class="rounded-md bg-[#0A1E45] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#163663]">
+                    Export PDF
+                </a>
+            @endif
 
             <a href="{{ route('stock.opname') }}"
-               class="rounded-md border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-[#0A1E45] hover:bg-slate-50">
+            class="rounded-md border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-[#0A1E45] hover:bg-slate-50">
                 Kembali
             </a>
         </div>
+    </div>
     </header>
 
     <main class="space-y-4 px-8 py-6">
