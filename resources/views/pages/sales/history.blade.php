@@ -359,6 +359,28 @@
                     >
                         Reset
                     </a>
+
+                    {{-- Tombol Export PDF --}}
+                    <a
+                        href="{{ route('sales.history.export.pdf', request()->only(['q', 'start', 'end', 'sort'])) }}"
+                        target="_blank"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#0A1E45] px-4 text-xs font-semibold text-white transition hover:bg-[#163663]"
+                    >
+                        <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M12 3v12m0 0l-4-4m4 4l4-4M5 17v3h14v-3"
+                            />
+                        </svg>
+                        Export PDF
+                    </a>
                 </div>
             </form>
 

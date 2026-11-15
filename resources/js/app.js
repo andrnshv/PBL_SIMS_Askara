@@ -1,6 +1,7 @@
 import { createPopper } from '@popperjs/core';
 import './bootstrap';
 import Alpine from 'alpinejs';
+import collapse from '@alpinejs/collapse';
 import ApexCharts from 'apexcharts';
 
 // flatpickr
@@ -12,6 +13,7 @@ import { Calendar } from 'fullcalendar';
 
 
 window.Alpine = Alpine;
+Alpine.plugin(collapse);
 window.createPopper = createPopper;
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;

@@ -72,15 +72,20 @@
                            class="h-10 w-full rounded-md border border-slate-200 px-3 text-xs">
                 </div>
 
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
                     <button type="submit"
                             class="h-10 rounded-md bg-[#4C8DF6] px-4 text-xs font-semibold text-white">
                         Terapkan
                     </button>
 
                     <a href="{{ route('stock.history') }}"
-                       class="flex h-10 items-center rounded-md border border-slate-200 px-4 text-xs">
+                    class="flex h-10 items-center rounded-md border border-slate-200 px-4 text-xs">
                         Reset
+                    </a>
+
+                    <a href="{{ route('stock.history.export.pdf', request()->only(['q', 'type', 'start', 'end', 'variant'])) }}"
+                    class="flex h-10 items-center rounded-md bg-[#0A1E45] px-4 text-xs font-semibold text-white hover:bg-[#16305A]">
+                        Export PDF
                     </a>
                 </div>
 

@@ -7,7 +7,7 @@
 
 <aside
     id="sidebar"
-    class="fixed flex flex-col mt-0 top-0 start-0 bg-[#0B1F3A] border-[#16305A] text-white h-screen transition-all duration-300 ease-in-out z-99999 ltr:border-r rtl:border-l border-gray-200 w-[90px] [.sidebar-expanded_&]:min-w-[290px]"
+    class="fixed flex flex-col mt-0 top-0 start-0 bg-[#0B1F3A] border-[#16305A] text-white h-screen transition-all duration-300 ease-in-out z-99999 ltr:border-r rtl:border-l border-gray-200 w-[90px] [.sidebar-expanded_&]:w-[290px]"
     x-data="{
         openSubmenus: {},
 
@@ -22,17 +22,19 @@
         }
     }"
     x-init="
-        @foreach ($menuGroups as $group)
-            @foreach ($group['items'] as $item)
-                @if (!empty($item['subItems']))
-                    if (
-                        {{ collect($item['subItems'])->contains(fn ($sub) => MenuHelper::isActive($sub['path'])) ? 'true' : 'false' }}
-                    ) {
-                        openSubmenus[@js($item['name'])] = true;
-                    }
-                @endif
+        (() => {
+            @foreach ($menuGroups as $group)
+                @foreach ($group['items'] as $item)
+                    @if (!empty($item['subItems']))
+                        if (
+                            {{ collect($item['subItems'])->contains(fn ($sub) => MenuHelper::isActive($sub['path'])) ? 'true' : 'false' }}
+                        ) {
+                            openSubmenus[@js($item['name'])] = true;
+                        }
+                    @endif
+                @endforeach
             @endforeach
-        @endforeach
+        })()
     "
     :class="{
         'translate-x-0': $store.sidebar.isMobileOpen,

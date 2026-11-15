@@ -152,6 +152,7 @@ class ReorderController extends Controller
             $variants = DB::table('product_variants')
                 ->whereIn('id', $ids)
                 ->where('status', 'active')
+                ->whereNull('merged_into_variant_id')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get()
@@ -199,6 +200,7 @@ class ReorderController extends Controller
         return DB::table('product_variants as v')
             ->join('products as p', 'p.id', '=', 'v.product_id')
             ->where('v.status', 'active')
-            ->where('p.status', 'active');
+            ->where('p.status', 'active')
+            ->whereNull('v.merged_into_variant_id');
     }
 }

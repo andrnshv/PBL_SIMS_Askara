@@ -123,6 +123,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
     Route::get('/stock/history', [StockController::class, 'history'])->name('stock.history');
 
+    Route::get('/stock/history/export/pdf', [StockController::class, 'exportHistoryPdf'])
+    ->name('stock.history.export.pdf');
+
     Route::get('/reorder', [ReorderController::class, 'index'])->name('reorder.index');
 
     // Halaman template bawaan
@@ -186,8 +189,11 @@ Route::middleware(['auth', 'role:staff_penjualan'])->group(function () {
     Route::get('/sales/history', [SalesController::class, 'history'])->name('sales.history');
 
     Route::get('/sales/history/{id}', [SalesController::class, 'detail'])
-    ->whereNumber('id')
-    ->name('sales.detail');
+        ->whereNumber('id')
+        ->name('sales.detail');
+
+    Route::get('/sales/history/export/pdf', [SalesController::class, 'exportPdf'])
+        ->name('sales.history.export.pdf');
 });
 
 // ================= UBAH REORDER POINT =================
@@ -206,6 +212,10 @@ Route::middleware(['auth', 'role:staff_gudang,staff_pembelian'])->group(function
     Route::get('/stock/receipts/{id}', [StockInController::class, 'show'])
         ->whereNumber('id')
         ->name('stock.receipts.show');
+
+    Route::get('/stock/receipts/{id}/export/pdf', [StockInController::class, 'exportReceiptPdf'])
+        ->whereNumber('id')
+        ->name('stock.receipts.export.pdf');
 
     Route::get('/goods-receipts', [StockInController::class, 'index'])
         ->name('goods-receipts.index');
@@ -237,6 +247,10 @@ Route::middleware([
         ->whereNumber('id')
         ->name('stock.opname.show');
 });
+
+Route::get('/stock/opname/{id}/export/pdf', [StockController::class, 'exportOpnamePdf'])
+    ->whereNumber('id')
+    ->name('stock.opname.export.pdf');
 
 // Pengelolaan opname: khusus Admin dan Staff Gudang.
 // Admin otomatis mendapat akses melalui RoleMiddleware.
@@ -274,6 +288,10 @@ Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
     Route::get('/purchase-orders/{id}', [PurchaseOrderController::class, 'show'])
         ->whereNumber('id')
         ->name('purchase-orders.show');
+
+    Route::get('/purchase-orders/{id}/export/pdf', [PurchaseOrderController::class, 'exportPdf'])
+        ->whereNumber('id')
+        ->name('purchase-orders.export.pdf');
 
     Route::get('/purchase-orders/{id}/edit', [PurchaseOrderController::class, 'edit'])
         ->whereNumber('id')

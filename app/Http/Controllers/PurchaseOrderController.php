@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * CRUD Purchase Order.
@@ -224,6 +225,92 @@ class PurchaseOrderController extends Controller
             'receipts' => $receipts,
             'total' => $items->sum(fn ($i) => $i->qty_ordered * $i->unit_cost),
         ]);
+    }
+
+    public function exportPdf(int $id)
+    {
+        // Mengambil informasi utama Purchase Order.
+        $po = DB::table('purchase_orders as po')
+            ->join('suppliers as s', 's.id', '=', 'po.supplier_id')
+            ->join('users as u', 'u.id', '=', 'po.created_by')
+            ->where('po.id', $id)
+            ->first([
+                'po.*',
+                's.name as supplier',
+                's.phone as supplier_phone',
+                'u.name as creator',
+            ]);
+
+        abort_if(! $po, 404);
+
+        // Mengambil seluruh detail barang dalam Purchase Order.
+        $items = DB::table('purchase_order_items as i')
+            ->join('product_variants as v', 'v.id', '=', 'i.variant_id')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('i.purchase_order_id', $id)
+            ->orderBy('p.name')
+            ->orderBy('v.name')
+            ->get([
+                'p.name as product_name',
+                'v.name as variant_name',
+                'v.sku',
+                'v.unit',
+                'i.qty_ordered',
+                'i.qty_received',
+                'i.unit_cost',
+            ]);
+
+        // Mengambil riwayat penerimaan barang dari PO ini.
+        $receipts = DB::table('stock_receipts')
+            ->where('purchase_order_id', $id)
+            ->orderByDesc('receipt_date')
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'receipt_no',
+                'receipt_date',
+                'delivery_ref',
+            ]);
+
+        // Menghitung ringkasan Purchase Order.
+        $total = $items->sum(
+            fn ($item) => $item->qty_ordered * $item->unit_cost
+        );
+
+        $totalLines = $items->count();
+
+        // Jumlah baris varian yang sudah menerima barang.
+        $receivedLines = $items
+            ->filter(fn ($item) => (int) $item->qty_received > 0)
+            ->count();
+
+        // Mengubah status database menjadi label yang mudah dibaca.
+        $statusLabels = [
+            'draft' => 'Draft',
+            'ordered' => 'Dikirim',
+            'partial' => 'Diterima sebagian',
+            'received' => 'Selesai',
+            'cancelled' => 'Dibatalkan',
+        ];
+
+        $statusLabel = $statusLabels[$po->status]
+            ?? ucfirst($po->status);
+
+        // Membentuk dokumen PDF.
+        $pdf = Pdf::loadView('reports.purchase-order-pdf', [
+            'po' => $po,
+            'items' => $items,
+            'receipts' => $receipts,
+            'total' => $total,
+            'totalLines' => $totalLines,
+            'receivedLines' => $receivedLines,
+            'statusLabel' => $statusLabel,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download(
+            'purchase-order-' . $po->po_number . '.pdf'
+        );
     }
 
     /** Draft -> ordered (dikirim ke supplier). Tidak menambah stok. */

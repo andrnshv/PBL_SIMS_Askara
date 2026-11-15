@@ -37,8 +37,13 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
+                <a href="{{ route('purchase-orders.export.pdf', $po->id) }}"
+                class="rounded-md bg-[#0A1E45] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#163663]">
+                    Export PDF
+                </a>
+
                 <a href="{{ route('purchase-orders.index') }}"
-                   class="rounded-md border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-[#0A1E45] hover:bg-slate-50">
+                class="rounded-md border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-[#0A1E45] hover:bg-slate-50">
                     Kembali
                 </a>
 
