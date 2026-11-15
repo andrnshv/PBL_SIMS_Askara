@@ -8,6 +8,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\StockAlertService;
 
 class StockController extends Controller
 {
@@ -744,7 +745,7 @@ class StockController extends Controller
             ->with('success', "Draft {$opname->opname_no} dihapus.");
     }
 
-    /**
+       /**
      * Simpan draft atau selesaikan opname (insert baru atau update draft).
      * Seluruh proses dalam satu transaksi; stok baru berubah saat "finish".
      */
@@ -779,10 +780,11 @@ class StockController extends Controller
         ])->values();
 
         $savedId = null;
+        $changes = []; // perubahan stok, dipakai untuk email stok habis / reorder
 
         try {
             DB::transaction(function () use (
-                $validated, $items, $finish, $userId, $opnameId, &$savedId
+                $validated, $items, $finish, $userId, $opnameId, &$savedId, &$changes
             ) {
                 $now = now();
 
@@ -887,6 +889,12 @@ class StockController extends Controller
                     DB::table('product_variants')
                         ->where('id', $item['variant_id'])
                         ->update(['current_stock' => $counted, 'updated_at' => $now]);
+
+                    $changes[] = [
+                        'variant_id' => $item['variant_id'],
+                        'before' => $system,
+                        'after' => $counted,
+                    ];
                 }
 
                 if ($finish) {
@@ -909,6 +917,9 @@ class StockController extends Controller
         }
 
         if ($finish) {
+            // Email stok habis / perlu reorder, dikirim setelah transaksi berhasil.
+            StockAlertService::notify($changes);
+
             return redirect()
                 ->route('stock.opname.show', $savedId)
                 ->with('success', 'Opname selesai dan penyesuaian stok berhasil dicatat.');

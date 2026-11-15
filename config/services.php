@@ -41,4 +41,12 @@ return [
         'bucket' => env('SUPABASE_BUCKET', 'product-images'),
     ],
 
+        'resend' => [
+        'key' => env('RESEND_API_KEY'),
+    ],
+
+        'stock_alert' => [
+        'to' => env('STOCK_ALERT_TO'),
+    ],
+
 ];

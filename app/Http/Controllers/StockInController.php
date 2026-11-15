@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\StockAlertService;
 
 /**
  * Stok masuk = dokumen penerimaan barang (stock_receipts + stock_receipt_items).
@@ -436,7 +437,10 @@ class StockInController extends Controller
                     'updated_at' => $now,
                 ]);
             }
-        });
+       });
+
+        // Email ringkasan stok masuk, dikirim setelah transaksi berhasil.
+        StockAlertService::notifyReceipt($receiptId);
 
         return redirect()
             ->route('stock.receipts.show', $receiptId)

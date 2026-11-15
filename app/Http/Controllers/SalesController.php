@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use App\Models\ProductVariant;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\StockAlertService;
 
 class SalesController extends Controller
 {
@@ -58,7 +59,7 @@ class SalesController extends Controller
         ]);
     }
 
-    /**
+        /**
      * Menyimpan transaksi penjualan dan mengurangi stok.
      */
     public function store(Request $request)
@@ -87,8 +88,9 @@ class SalesController extends Controller
         ]);
 
         $userId = $request->user()->id;
+        $changes = []; // perubahan stok, dipakai untuk email stok habis / reorder
 
-        $saleId = DB::transaction(function () use ($validated, $userId) {
+        $saleId = DB::transaction(function () use ($validated, $userId, &$changes) {
             $items = collect($validated['items']);
 
             $variantIds = $items
@@ -205,10 +207,19 @@ class SalesController extends Controller
                     'created_by' => $userId,
                     'created_at' => $now,
                 ]);
+
+                $changes[] = [
+                    'variant_id' => $item['variant_id'],
+                    'before' => $item['stock_before'],
+                    'after' => $item['stock_after'],
+                ];
             }
 
             return $saleId;
         });
+
+        // Email stok habis / perlu reorder, dikirim setelah transaksi berhasil.
+        StockAlertService::notify($changes);
 
         $invoiceNo = DB::table('sales')
             ->where('id', $saleId)
