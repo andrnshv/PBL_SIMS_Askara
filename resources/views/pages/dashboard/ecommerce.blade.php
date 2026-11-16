@@ -83,13 +83,32 @@
 
     $stats = [
       [
-        'title' => 'Total Produk',
+        'title' => 'Produk Aktif',
         'value' => number_format($metrics['total_products'], 0, ',', '.'),
         'border' => 'border-[#3B6EF5]',
         'badge' => $pg === null ? null : ($pg >= 0 ? '+' : '') . $pg . '%',
         'badgeClass' => ($pg ?? 0) >= 0 ? $up : $down,
-        'note' => $pg === null ? null : 'dari bulan lalu',
+        'note' => number_format($metrics['total_variants'], 0, ',', '.') . ' item (varian) aktif'
+                  . ($pg === null ? '' : ' · dari bulan lalu'),
         'icon' => 'M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9',
+      ],
+      [
+        'title' => 'Item Hasil Penggabungan',
+        'value' => number_format($metrics['merged_items'], 0, ',', '.'),
+        'border' => 'border-[#8B5CF6]',
+        'badge' => null,
+        'badgeClass' => '',
+        'note' => 'dari ' . number_format($metrics['merge_operations'], 0, ',', '.') . ' operasi penggabungan · kumulatif',
+        'icon' => 'M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5',
+      ],
+      [
+        'title' => 'Total Stok',
+        'value' => number_format($metrics['total_stock'], 0, ',', '.'),
+        'border' => 'border-[#10B981]',
+        'badge' => null,
+        'badgeClass' => '',
+        'note' => 'jumlah unit semua varian aktif · per hari ini',
+        'icon' => 'M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
       ],
       [
         'title' => 'Total Penjualan',
@@ -122,7 +141,7 @@
   @endphp
 
   {{-- Kartu statistik --}}
-  <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+  <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 md:gap-6">
     @foreach ($stats as $s)
       <div class="rounded-2xl border-[3px] {{ $s['border'] }} bg-white p-5 dark:bg-white/[0.03] md:p-6">
         <div class="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
