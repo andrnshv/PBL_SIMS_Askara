@@ -15,7 +15,7 @@ class DashboardController extends Controller
     {
         $now = Carbon::now();
 
-        // ===== FILTER TANGGAL (baru) =====
+        // ===== FILTER TANGGAL =====
         $validated = $request->validate([
             'start' => ['nullable', 'date'],
             'end'   => ['nullable', 'date', 'after_or_equal:start'],
@@ -25,7 +25,7 @@ class DashboardController extends Controller
             'end.after_or_equal' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.',
         ]);
 
-        // Default: 7 hari terakhir (sama seperti tampilan sekarang)
+        // Default: 7 hari terakhir
         $start = isset($validated['start'])
             ? Carbon::parse($validated['start'])->startOfDay()
             : $now->copy()->subDays(6)->startOfDay();
@@ -43,9 +43,9 @@ class DashboardController extends Controller
         // Periode pembanding: rentang sebelumnya dengan panjang yang sama
         $prevEnd   = $start->copy()->subSecond();
         $prevStart = $start->copy()->subDays($days);
-        // ==================================
+        // ==========================
 
-        // 1. Total produk aktif + pertumbuhan dibanding bulan lalu (tidak diubah)
+        // 1. Total produk aktif + pertumbuhan dibanding bulan lalu
         $oneMonthAgo = $now->copy()->subMonthNoOverflow();
         $totalProducts = DB::table('products')->where('status', 'active')->count();
         $productsLastMonth = DB::table('products')
@@ -63,13 +63,36 @@ class DashboardController extends Controller
             ->whereBetween('sale_date', [$prevStart, $prevEnd])
             ->count();
 
-        // 3. Stok menipis (tidak diubah)
+        // 3. Stok menipis: stok saat ini <= titik pemesanan ulang
         $lowStock = DB::table('product_variants')
             ->where('status', 'active')
             ->whereColumn('current_stock', '<=', 'reorder_point')
             ->count();
 
-        // 4. Total PO (tidak diubah)
+        // 3b. Total stok: jumlah stok seluruh varian aktif
+        //     (definisi sama dengan halaman Daftar Stok / StockController@index)
+        $stockSummary = DB::table('product_variants as v')
+            ->join('products as p', 'p.id', '=', 'v.product_id')
+            ->where('v.status', 'active')
+            ->where('p.status', 'active')
+            ->whereNull('v.merged_into_variant_id')
+            ->selectRaw('COALESCE(SUM(v.current_stock), 0) AS total_stock, COUNT(*) AS total_variants')
+            ->first();
+
+        // 3c. Item hasil penggabungan (kumulatif, tidak ikut filter tanggal)
+        //     Varian sumber yang sudah digabung: status 'merged' atau merged_into_variant_id terisi
+        //     (kriteria sama dengan ProductVariant::isMerged()).
+        $mergedItems = DB::table('product_variants')
+            ->where(function ($q) {
+                $q->where('status', 'merged')
+                  ->orWhereNotNull('merged_into_variant_id');
+            })
+            ->count();
+
+        // Jumlah operasi penggabungan yang tercatat di audit trail (satu baris log = satu operasi)
+        $mergeOperations = DB::table('product_merge_logs')->count();
+
+        // 4. Total PO
         $totalPo = DB::table('purchase_orders')->count();
 
         // 5. Grafik: jumlah penjualan per hari pada rentang filter
@@ -92,6 +115,10 @@ class DashboardController extends Controller
             'metrics' => [
                 'total_products'  => $totalProducts,
                 'products_growth' => $this->growth($totalProducts, $productsLastMonth),
+                'total_stock'     => (int) $stockSummary->total_stock,
+                'total_variants'  => (int) $stockSummary->total_variants,
+                'merged_items'    => $mergedItems,
+                'merge_operations' => $mergeOperations,
                 'sales_count'     => $salesInRange,
                 'sales_growth'    => $this->growth($salesInRange, $salesPrevRange),
                 'low_stock'       => $lowStock,
@@ -106,7 +133,7 @@ class DashboardController extends Controller
         ]);
     }
 
-    // growth() tidak diubah
+    // Hitung persentase pertumbuhan. Kalau data pembanding 0, hasilnya null (badge disembunyikan).
     private function growth(int $current, int $previous): ?int
     {
         if ($previous === 0) {
