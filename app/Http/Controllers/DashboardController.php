@@ -58,10 +58,17 @@ class DashboardController extends Controller
             ->where('status', 'completed')
             ->whereBetween('sale_date', [$start, $end])
             ->count();
-        $salesPrevRange = DB::table('sales')
+
+        // 2b. Nilai penjualan (rupiah) pada rentang filter vs periode sebelumnya.
+        //     Hanya transaksi 'completed'; sumber angka: sales.total_amount.
+        $revenueInRange = (float) DB::table('sales')
+            ->where('status', 'completed')
+            ->whereBetween('sale_date', [$start, $end])
+            ->sum('total_amount');
+        $revenuePrevRange = (float) DB::table('sales')
             ->where('status', 'completed')
             ->whereBetween('sale_date', [$prevStart, $prevEnd])
-            ->count();
+            ->sum('total_amount');
 
         // 3. Stok menipis: stok saat ini <= titik pemesanan ulang
         $lowStock = DB::table('product_variants')
@@ -120,7 +127,8 @@ class DashboardController extends Controller
                 'merged_items'    => $mergedItems,
                 'merge_operations' => $mergeOperations,
                 'sales_count'     => $salesInRange,
-                'sales_growth'    => $this->growth($salesInRange, $salesPrevRange),
+                'sales_revenue'   => $revenueInRange,
+                'sales_growth'    => $this->growth($revenueInRange, $revenuePrevRange),
                 'low_stock'       => $lowStock,
                 'total_po'        => $totalPo,
             ],
@@ -134,9 +142,9 @@ class DashboardController extends Controller
     }
 
     // Hitung persentase pertumbuhan. Kalau data pembanding 0, hasilnya null (badge disembunyikan).
-    private function growth(int $current, int $previous): ?int
+    private function growth(int|float $current, int|float $previous): ?int
     {
-        if ($previous === 0) {
+        if ($previous == 0) {
             return null;
         }
 
