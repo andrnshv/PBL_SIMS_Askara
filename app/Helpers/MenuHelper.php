@@ -43,6 +43,12 @@ class MenuHelper
                 ],
             ],
             [
+                'icon' => 'package',
+                'name' => 'Migrasi Accurate',
+                'path' => '/accurate-migration',
+                'roles' => ['staff_gudang'],
+            ],
+            [
                 'icon' => 'bell',
                 'name' => 'Reorder Point',
                 'path' => '/reorder',

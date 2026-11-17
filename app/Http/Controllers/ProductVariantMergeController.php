@@ -211,6 +211,10 @@ class ProductVariantMergeController extends Controller
                 ->where('id', $targetId)
                 ->update(['current_stock' => $targetStock, 'updated_at' => $now]);
 
+            DB::table('accurate_items')
+                ->whereIn('mapped_variant_id', $sourceIds)
+                ->update(['mapped_variant_id' => $targetId, 'updated_at' => $now]);
+            
             return [
                 'target' => $target->name,
                 'count'  => count($plan),

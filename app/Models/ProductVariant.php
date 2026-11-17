@@ -6,6 +6,7 @@ use App\Support\SupabaseStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductVariant extends Model
 {
@@ -53,6 +54,12 @@ class ProductVariant extends Model
             || DB::table('purchase_order_items')->where('variant_id', $this->id)->exists()
             || DB::table('stock_opname_items')->where('variant_id', $this->id)->exists()
             || DB::table('product_merge_logs')->where('target_variant_id', $this->id)->exists()
-            || DB::table('product_variants')->where('merged_into_variant_id', $this->id)->exists();
+            || DB::table('product_variants')->where('merged_into_variant_id', $this->id)->exists()
+            || DB::table('accurate_items')->where('mapped_variant_id', $this->id)->exists();
+    }
+
+    public function accurateItems(): HasMany
+    {
+        return $this->hasMany(AccurateItem::class, 'mapped_variant_id');
     }
 }
