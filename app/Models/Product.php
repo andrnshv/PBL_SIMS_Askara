@@ -36,6 +36,7 @@ class Product extends Model
             || DB::table('stock_opname_items')->whereIn('variant_id', $variantIds)->exists()
             || DB::table('product_merge_logs')->whereIn('target_variant_id', $variantIds)->exists()
             || DB::table('product_variants')->whereIn('merged_into_variant_id', $variantIds)->exists()
+            || DB::table('accurate_items')->whereIn('mapped_variant_id', $variantIds)->exists()
             || $this->variants()->where('current_stock', '>', 0)->exists();
     }
 }

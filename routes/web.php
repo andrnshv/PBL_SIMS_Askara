@@ -15,6 +15,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ProductRenameController;
 use App\Http\Controllers\ProductVariantMergeController;
+use App\Http\Controllers\AccurateMigrationController;
 
 /*
 | Hak akses (admin selalu lolos semua middleware 'role'):
@@ -336,4 +337,21 @@ Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
     Route::delete('/suppliers/{id}', [SupplierController::class, 'destroy'])
         ->whereNumber('id')
         ->name('suppliers.destroy');
+});
+
+Route::middleware(['auth', 'role:staff_gudang'])->prefix('accurate-migration')->group(function () {
+    Route::get('/', [AccurateMigrationController::class, 'index'])->name('accurate.index');
+    Route::get('/template', [AccurateMigrationController::class, 'template'])->name('accurate.template');
+    Route::post('/import', [AccurateMigrationController::class, 'import'])->name('accurate.import');
+    Route::get('/batches/{id}', [AccurateMigrationController::class, 'show'])->whereNumber('id')->name('accurate.batches.show');
+    Route::post('/batches/{id}/verify', [AccurateMigrationController::class, 'verifyBulk'])->whereNumber('id')->name('accurate.batches.verify');
+    Route::post('/items/{id}/map', [AccurateMigrationController::class, 'map'])->whereNumber('id')->name('accurate.items.map');
+    Route::post('/items/{id}/unmap', [AccurateMigrationController::class, 'unmap'])->whereNumber('id')->name('accurate.items.unmap');
+    Route::post('/items/{id}/verify', [AccurateMigrationController::class, 'verify'])->whereNumber('id')->name('accurate.items.verify');
+    Route::post('/items/{id}/reject', [AccurateMigrationController::class, 'reject'])->whereNumber('id')->name('accurate.items.reject');
+});
+
+Route::middleware(['auth', 'role:admin'])->prefix('accurate-migration')->group(function () {
+    Route::post('/items/{id}/create-variant', [AccurateMigrationController::class, 'createVariant'])->whereNumber('id')->name('accurate.items.create-variant');
+    Route::post('/items/{id}/reopen', [AccurateMigrationController::class, 'reopen'])->whereNumber('id')->name('accurate.items.reopen');
 });
