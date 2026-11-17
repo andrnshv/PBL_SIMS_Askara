@@ -117,6 +117,25 @@ class DashboardController extends Controller
             $values[] = (int) ($rows[$date->toDateString()] ?? 0);
         }
 
+        // 6. Produk terlaris (5 teratas) pada rentang filter, digabung per produk induk.
+        //    Varian yang sudah di-merge dipetakan ke varian tujuannya, sehingga penjualan
+        //    produk yang sama tidak terpecah. Diurutkan berdasarkan nilai penjualan (rupiah)
+        //    karena satuan antar produk berbeda (pcs, kg, pasang, dst).
+        $topProducts = DB::table('sale_items as si')
+            ->join('sales as s', 's.id', '=', 'si.sale_id')
+            ->join('product_variants as v', 'v.id', '=', 'si.variant_id')
+            ->leftJoin('product_variants as t', 't.id', '=', 'v.merged_into_variant_id')
+            ->join('products as p', 'p.id', '=', DB::raw('COALESCE(t.product_id, v.product_id)'))
+            ->where('s.status', 'completed')
+            ->whereBetween('s.sale_date', [$start, $end])
+            ->selectRaw('p.id, p.name, SUM(si.quantity) AS qty, SUM(si.subtotal) AS revenue,
+                         COUNT(DISTINCT COALESCE(t.id, v.id)) AS variant_count')
+            ->groupBy('p.id', 'p.name')
+            ->orderByDesc('revenue')
+            ->orderByDesc('qty')
+            ->limit(5)
+            ->get();
+
         return view('pages.dashboard.ecommerce', [
             'title' => 'Dashboard',
             'metrics' => [
@@ -133,6 +152,7 @@ class DashboardController extends Controller
                 'total_po'        => $totalPo,
             ],
             'chart'  => ['labels' => $labels, 'values' => $values],
+            'topProducts' => $topProducts,
             'filter' => [
                 'start' => $start->toDateString(),
                 'end'   => $end->toDateString(),

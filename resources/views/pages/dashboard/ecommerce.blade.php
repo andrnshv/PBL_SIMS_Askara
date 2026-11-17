@@ -192,6 +192,48 @@
         </div>
       </div>
     </div>
+
+    {{-- Produk terlaris --}}
+    @php
+      $maxRevenue = max(1, (float) ($topProducts->max('revenue') ?? 0));
+    @endphp
+    <div class="col-span-12 xl:col-span-5">
+      <div class="h-full rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Produk Terlaris</h3>
+        <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+          Berdasarkan nilai penjualan, {{ $filterStart->translatedFormat('d M') }} – {{ $filterEnd->translatedFormat('d M Y') }}
+        </p>
+
+        @forelse ($topProducts as $i => $p)
+          <div class="mt-5 first:mt-6">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-white/90">
+                  {{ $i + 1 }}
+                </span>
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium text-gray-800 dark:text-white/90">{{ $p->name }}</p>
+                  <p class="text-theme-xs text-gray-500 dark:text-gray-400">
+                    {{ number_format($p->qty, 0, ',', '.') }} terjual · {{ $p->variant_count }} varian
+                  </p>
+                </div>
+              </div>
+              <span class="shrink-0 text-sm font-semibold text-gray-800 dark:text-white/90">
+                Rp {{ number_format($p->revenue, 0, ',', '.') }}
+              </span>
+            </div>
+            <div class="mt-2 h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-800">
+              <div class="h-1.5 rounded-full bg-[#3B6EF5]" style="width: {{ round(($p->revenue / $maxRevenue) * 100) }}%"></div>
+            </div>
+          </div>
+        @empty
+          <div class="mt-8 flex flex-col items-center justify-center py-10 text-center">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Belum ada penjualan pada periode ini</p>
+            <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">Ubah rentang tanggal untuk melihat produk terlaris.</p>
+          </div>
+        @endforelse
+      </div>
+    </div>
   </div>
 
 @endsection
