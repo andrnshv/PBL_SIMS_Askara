@@ -18,27 +18,32 @@
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.store('theme', {
-                init() {
-                    const savedTheme = localStorage.getItem('theme');
-                    this.theme = savedTheme === 'dark' ? 'dark' : 'light';
-                    this.updateTheme();
-                },
                 theme: 'light',
-                toggle() {
-                    this.theme = this.theme === 'light' ? 'dark' : 'light';
-                    localStorage.setItem('theme', this.theme);
+
+                init() {
                     this.updateTheme();
                 },
+
+                toggle() {
+                    this.updateTheme();
+                },
+
                 updateTheme() {
                     const html = document.documentElement;
                     const body = document.body;
-                    if (this.theme === 'dark') {
-                        html.classList.add('dark');
-                        body.classList.add('dark', 'bg-gray-900');
-                    } else {
-                        html.classList.remove('dark');
+
+                    html.classList.remove('dark');
+                    html.setAttribute('data-color-scheme', 'light');
+                    html.dataset.theme = 'light';
+                    html.style.colorScheme = 'light';
+
+                    if (body) {
                         body.classList.remove('dark', 'bg-gray-900');
+                        body.dataset.theme = 'light';
+                        body.style.colorScheme = 'light';
                     }
+
+                    this.theme = 'light';
                 }
             });
 
@@ -73,17 +78,18 @@
         });
     </script>
 
-    <!-- Apply dark mode immediately to prevent flash -->
+    <!-- Force Light Mode immediately -->
     <script>
-        (function() {
-            const savedTheme = localStorage.getItem('theme');
-            const theme = savedTheme === 'dark' ? 'dark' : 'light';
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-                if (document.body) document.body.classList.add('dark', 'bg-gray-900');
-            } else {
-                document.documentElement.classList.remove('dark');
-                if (document.body) document.body.classList.remove('dark', 'bg-gray-900');
+        (function () {
+            localStorage.setItem('theme', 'light');
+
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-color-scheme', 'light');
+            document.documentElement.dataset.theme = 'light';
+            document.documentElement.style.colorScheme = 'light';
+
+            if (document.body) {
+                document.body.classList.remove('dark', 'bg-gray-900');
             }
         })();
     </script>
