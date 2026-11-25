@@ -21,39 +21,41 @@
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.store('theme', {
-                init() {
-                    const savedTheme = localStorage.getItem('theme');
-                    this.theme = savedTheme === 'dark' ? 'dark' : 'light';
-                    this.updateTheme();
-                },
                 theme: 'light',
                 resolvedTheme: 'light',
-                set(value) {
-                    value = value === 'dark' ? 'dark' : 'light';
-                    this.theme = value;
-                    localStorage.setItem('theme', value);
+
+                init() {
                     this.updateTheme();
-                    window.dispatchEvent(new CustomEvent('theme-changed', { detail: value }));
                 },
+
+                set() {
+                    this.theme = 'light';
+                    this.updateTheme();
+
+                    window.dispatchEvent(
+                        new CustomEvent('theme-changed', { detail: 'light' })
+                    );
+                },
+
                 toggle() {
-                    this.set(this.resolvedTheme === 'dark' ? 'light' : 'dark');
+                    this.set();
                 },
+
                 updateTheme() {
                     const html = document.documentElement;
-                    const isDark = this.theme === 'dark';
-                    if (isDark) {
-                        html.classList.add('dark');
-                    } else {
-                        html.classList.remove('dark');
-                    }
 
-                    this.resolvedTheme = isDark ? 'dark' : 'light';
-                    html.setAttribute('data-color-scheme', this.resolvedTheme);
-                    html.dataset['theme'] = this.resolvedTheme;
-                    html.style.colorScheme = this.resolvedTheme;
+                    html.classList.remove('dark');
+                    html.setAttribute('data-color-scheme', 'light');
+                    html.dataset.theme = 'light';
+                    html.style.colorScheme = 'light';
+
+                    this.theme = 'light';
+                    this.resolvedTheme = 'light';
+
                     if (document.body) {
-                        document.body.dataset['theme'] = this.resolvedTheme;
-                        document.body.style.colorScheme = this.resolvedTheme;
+                        document.body.classList.remove('dark');
+                        document.body.dataset.theme = 'light';
+                        document.body.style.colorScheme = 'light';
                     }
                 }
             });
@@ -129,15 +131,15 @@
                 document.documentElement.setAttribute('lang', savedLocale);
             }
 
-            const savedTheme = localStorage.getItem('theme');
-            const isDark = savedTheme === 'dark';
-            if (isDark) {
-                document.documentElement.classList.add('dark');
-                document.documentElement.setAttribute('data-color-scheme', 'dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-                document.documentElement.setAttribute('data-color-scheme', 'light');
-            }
+            // Force Light Mode globally.
+            localStorage.setItem('theme', 'light');
+
+            const html = document.documentElement;
+
+            html.classList.remove('dark');
+            html.setAttribute('data-color-scheme', 'light');
+            html.dataset.theme = 'light';
+            html.style.colorScheme = 'light';
         })();
     </script>
 

@@ -310,6 +310,10 @@ Route::middleware(['auth', 'role:staff_pembelian'])->group(function () {
         ->whereNumber('id')
         ->name('purchase-orders.send');
 
+    Route::post('/purchase-orders/{id}/close', [PurchaseOrderController::class, 'close'])
+        ->whereNumber('id')
+        ->name('purchase-orders.close');
+
     Route::post('/purchase-orders/{id}/cancel', [PurchaseOrderController::class, 'cancel'])
         ->whereNumber('id')
         ->name('purchase-orders.cancel');

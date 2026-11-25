@@ -28,7 +28,7 @@ class PurchaseOrderController extends Controller
         $validated = $request->validate([
             'q'        => ['nullable', 'string', 'max:100'],
             'supplier' => ['nullable', 'integer'],
-            'status'   => ['nullable', 'in:draft,ordered,partial,received,cancelled'],
+            'status' => ['nullable', 'in:draft,ordered,partial,received,closed_partial,cancelled'],
             'start'    => ['nullable', 'date'],
             'end'      => $endRules,
             'per_page' => ['nullable', 'integer', 'in:10,25,50'],
@@ -122,6 +122,7 @@ class PurchaseOrderController extends Controller
             'ordered'   => (int) ($counts['ordered'] ?? 0),
             'partial'   => (int) ($counts['partial'] ?? 0),
             'received'  => (int) ($counts['received'] ?? 0),
+            'closed_partial' => (int) ($counts['closed_partial'] ?? 0),
             'cancelled' => (int) ($counts['cancelled'] ?? 0),
             'total'     => $orders->total(), // jumlah PO sesuai filter
         ];
@@ -290,6 +291,7 @@ class PurchaseOrderController extends Controller
             'ordered' => 'Dikirim',
             'partial' => 'Diterima sebagian',
             'received' => 'Selesai',
+            'closed_partial' => 'Ditutup sebagian',
             'cancelled' => 'Dibatalkan',
         ];
 
@@ -339,6 +341,53 @@ class PurchaseOrderController extends Controller
         return redirect()
             ->route('purchase-orders.show', $id)
             ->with($result ? 'error' : 'success', $result ?? 'PO ditandai sebagai Dikirim.');
+    }
+
+    /** Tutup PO yang sudah menerima barang sebagian. */
+    public function close(int $id)
+    {
+        $result = DB::transaction(function () use ($id) {
+            $po = DB::table('purchase_orders')
+                ->where('id', $id)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(! $po, 404);
+
+            if ($po->status !== 'partial') {
+                return 'Hanya PO berstatus Diterima Sebagian yang dapat ditutup.';
+            }
+
+            $hasReceived = DB::table('purchase_order_items')
+                ->where('purchase_order_id', $id)
+                ->where('qty_received', '>', 0)
+                ->exists();
+
+            $hasRemaining = DB::table('purchase_order_items')
+                ->where('purchase_order_id', $id)
+                ->whereColumn('qty_received', '<', 'qty_ordered')
+                ->exists();
+
+            if (! $hasReceived || ! $hasRemaining) {
+                return 'PO tidak memenuhi kondisi untuk ditutup sebagian.';
+            }
+
+            DB::table('purchase_orders')
+                ->where('id', $id)
+                ->update([
+                    'status' => 'closed_partial',
+                    'updated_at' => now(),
+                ]);
+
+            return null;
+        });
+
+        return redirect()
+            ->route('purchase-orders.show', $id)
+            ->with(
+                $result ? 'error' : 'success',
+                $result ?? 'PO berhasil ditutup sebagian. Sisa barang tidak dapat diterima lagi.'
+            );
     }
 
     /** Batalkan PO yang belum ada barang diterima. */

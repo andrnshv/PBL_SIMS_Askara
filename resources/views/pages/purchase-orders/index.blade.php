@@ -8,10 +8,11 @@
 
     // Pemetaan status database -> label & warna di tampilan.
     $statuses = [
-        'draft'     => ['label' => 'Draft',             'dot' => 'bg-slate-500',  'text' => 'text-slate-600'],
-        'ordered'   => ['label' => 'Dikirim',           'dot' => 'bg-blue-500',   'text' => 'text-blue-600'],
-        'partial'   => ['label' => 'Diterima sebagian', 'dot' => 'bg-amber-500',  'text' => 'text-amber-600'],
-        'received'  => ['label' => 'Selesai',           'dot' => 'bg-green-600',  'text' => 'text-green-700'],
+        'draft'          => ['label' => 'Draft',                'dot' => 'bg-slate-500', 'text' => 'text-slate-600'],
+        'ordered'        => ['label' => 'Dikirim',              'dot' => 'bg-blue-500',  'text' => 'text-blue-600'],
+        'partial'        => ['label' => 'Diterima sebagian',    'dot' => 'bg-amber-500', 'text' => 'text-amber-600'],
+        'received'       => ['label' => 'Selesai',              'dot' => 'bg-green-600','text' => 'text-green-700'],
+        'closed_partial' => ['label' => 'Ditutup sebagian',     'dot' => 'bg-slate-500','text' => 'text-slate-600'],
         'cancelled' => ['label' => 'Dibatalkan',        'dot' => 'bg-red-500',    'text' => 'text-red-600'],
     ];
 

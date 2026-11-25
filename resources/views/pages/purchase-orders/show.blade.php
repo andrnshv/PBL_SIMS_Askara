@@ -7,11 +7,12 @@
     $rupiah = fn ($n) => 'Rp' . number_format($n, 0, ',', '.');
 
     $statuses = [
-        'draft'     => ['label' => 'Draft',             'dot' => 'bg-slate-500', 'text' => 'text-slate-600'],
-        'ordered'   => ['label' => 'Dikirim',           'dot' => 'bg-blue-500',  'text' => 'text-blue-600'],
-        'partial'   => ['label' => 'Diterima sebagian', 'dot' => 'bg-amber-500', 'text' => 'text-amber-600'],
-        'received'  => ['label' => 'Selesai',           'dot' => 'bg-green-600', 'text' => 'text-green-700'],
-        'cancelled' => ['label' => 'Dibatalkan',        'dot' => 'bg-red-500',   'text' => 'text-red-600'],
+        'draft'          => ['label' => 'Draft',                'dot' => 'bg-slate-500', 'text' => 'text-slate-600'],
+        'ordered'        => ['label' => 'Dikirim',              'dot' => 'bg-blue-500',  'text' => 'text-blue-600'],
+        'partial'        => ['label' => 'Diterima sebagian',    'dot' => 'bg-amber-500', 'text' => 'text-amber-600'],
+        'received'       => ['label' => 'Selesai',              'dot' => 'bg-green-600','text' => 'text-green-700'],
+        'closed_partial' => ['label' => 'Ditutup sebagian',     'dot' => 'bg-slate-500','text' => 'text-slate-600'],
+        'cancelled'      => ['label' => 'Dibatalkan',           'dot' => 'bg-red-500',   'text' => 'text-red-600'],
     ];
     $st = $statuses[$po->status] ?? ['label' => ucfirst($po->status), 'dot' => 'bg-slate-400', 'text' => 'text-slate-600'];
 
@@ -74,6 +75,19 @@
                        class="rounded-md bg-[#4C8DF6] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#3b7ae0]">
                         Terima barang
                     </a>
+                @endif
+
+                @if ($po->status === 'partial')
+                    <form method="POST"
+                        action="{{ route('purchase-orders.close', $po->id) }}"
+                        onsubmit="return confirm('Tutup PO {{ $po->po_number }}? Sisa barang yang belum diterima tidak akan dapat diterima lagi. Lanjutkan?')">
+                        @csrf
+
+                        <button type="submit"
+                                class="rounded-md border border-amber-300 bg-amber-50 px-5 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
+                            Tutup PO
+                        </button>
+                    </form>
                 @endif
 
                 @if (in_array($po->status, ['draft', 'ordered'], true) && ! $anyReceived)

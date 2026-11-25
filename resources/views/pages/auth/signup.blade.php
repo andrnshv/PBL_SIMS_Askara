@@ -378,43 +378,6 @@
 
             </div>
         </div>
-
-        {{-- Theme Toggle --}}
-        <div class="fixed right-6 bottom-6 z-50">
-            <button
-                type="button"
-                aria-label="Toggle theme"
-                class="bg-brand-500 hover:bg-brand-600 inline-flex size-14 items-center justify-center rounded-full text-white transition-colors"
-                @click.prevent="$store.theme.toggle()">
-
-                {{-- Sun Icon --}}
-                <svg class="hidden fill-current dark:block"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="10" cy="10" r="3.5" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M10 1.75V3.25M10 16.75V18.25M18.25 10H16.75M3.25 10H1.75M15.83 4.17L14.77 5.23M5.23 14.77L4.17 15.83M15.83 15.83L14.77 14.77M5.23 5.23L4.17 4.17"
-                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-
-                {{-- Moon Icon --}}
-                <svg class="fill-current dark:hidden"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.45 11.97A7.46 7.46 0 0 1 8.03 2.55 8.46 8.46 0 1 0 17.45 11.97Z"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"/>
-                </svg>
-            </button>
-        </div>
-
     </div>
 </div>
 @endsection
