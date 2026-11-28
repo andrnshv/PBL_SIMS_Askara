@@ -59,7 +59,7 @@ class SalesController extends Controller
         ]);
     }
 
-        /**
+    /**
      * Menyimpan transaksi penjualan dan mengurangi stok.
      */
     public function store(Request $request)
@@ -230,6 +230,107 @@ class SalesController extends Controller
             ->with('success', "Transaksi {$invoiceNo} berhasil disimpan.");
     }
 
+    /**
+     * Membatalkan transaksi penjualan (void) dan mengembalikan stok.
+     * Data penjualan tidak dihapus; status berubah menjadi 'cancelled'.
+     */
+    public function cancel(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'cancel_reason' => ['required', 'string', 'min:5', 'max:255'],
+        ], [
+            'cancel_reason.required' => 'Alasan pembatalan wajib diisi.',
+            'cancel_reason.min' => 'Alasan pembatalan minimal 5 karakter.',
+            'cancel_reason.max' => 'Alasan pembatalan maksimal 255 karakter.',
+        ]);
+
+        $userId = $request->user()->id;
+        $changes = [];
+
+        DB::transaction(function () use ($id, $validated, $userId, &$changes) {
+            // Kunci baris penjualan agar tidak bisa dibatalkan dua kali secara bersamaan.
+            $sale = DB::table('sales')
+                ->where('id', $id)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$sale, 404);
+
+            if ($sale->status !== 'completed') {
+                throw ValidationException::withMessages([
+                    'cancel_reason' => 'Transaksi ini sudah dibatalkan.',
+                ]);
+            }
+
+            $items = DB::table('sale_items')
+                ->where('sale_id', $sale->id)
+                ->orderBy('variant_id')
+                ->get();
+
+            // Kunci varian dengan urutan id yang sama seperti store() untuk mencegah deadlock.
+            $variants = DB::table('product_variants')
+                ->whereIn('id', $items->pluck('variant_id'))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $now = now();
+
+            foreach ($items as $item) {
+                $variant = $variants->get($item->variant_id);
+
+                if (!$variant) {
+                    throw ValidationException::withMessages([
+                        'cancel_reason' => 'Ada varian produk pada transaksi ini yang tidak ditemukan.',
+                    ]);
+                }
+
+                $quantity = (int) $item->quantity;
+                $before = (int) $variant->current_stock;
+                $after = $before + $quantity;
+
+                DB::table('product_variants')
+                    ->where('id', $item->variant_id)
+                    ->update([
+                        'current_stock' => $after,
+                        'updated_at' => $now,
+                    ]);
+
+                DB::table('stock_movements')->insert([
+                    'variant_id' => $item->variant_id,
+                    'movement_type' => 'sale_cancel',
+                    'qty_change' => $quantity, // positif: stok kembali
+                    'stock_before' => $before,
+                    'stock_after' => $after,
+                    'reference_type' => 'sale',
+                    'reference_id' => $sale->id,
+                    'created_by' => $userId,
+                    'created_at' => $now,
+                ]);
+
+                $changes[] = [
+                    'variant_id' => $item->variant_id,
+                    'before' => $before,
+                    'after' => $after,
+                ];
+            }
+
+            DB::table('sales')
+                ->where('id', $sale->id)
+                ->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => $now,
+                    'cancelled_by' => $userId,
+                    'cancel_reason' => $validated['cancel_reason'],
+                    'updated_at' => $now,
+                ]);
+        });
+
+        return redirect()
+            ->route('sales.detail', $id)
+            ->with('success', 'Transaksi berhasil dibatalkan dan stok dikembalikan.');
+    }
 
     public function history(Request $request)
     {
@@ -308,20 +409,23 @@ class SalesController extends Controller
 
         $baseQuery->orderBy('s.id', 'desc');
 
-           // Query ringkasan harus tanpa ORDER BY (PostgreSQL menolaknya pada count/sum).
-            $statsQuery = (clone $baseQuery)->reorder();
+        // Query ringkasan harus tanpa ORDER BY (PostgreSQL menolaknya pada count/sum).
+        // Hanya transaksi 'completed' yang dihitung; transaksi dibatalkan tidak masuk pendapatan.
+        $statsQuery = (clone $baseQuery)
+            ->reorder()
+            ->where('s.status', 'completed');
 
-            // ID transaksi setelah filter, digunakan untuk menghitung ringkasan.
-            $filteredIds = (clone $statsQuery)->select('s.id');
+        // ID transaksi setelah filter, digunakan untuk menghitung ringkasan.
+        $filteredIds = (clone $statsQuery)->select('s.id');
 
-            $stats = [
-                'transactions' => (clone $statsQuery)->count('s.id'),
-                'revenue' => (clone $statsQuery)->sum('s.total_amount') ?? 0,
-                'units' => DB::table('sale_items as si')
-                    ->join('sales as sx', 'sx.id', '=', 'si.sale_id')
-                    ->whereIn('sx.id', $filteredIds)
-                    ->sum('si.quantity'),
-            ];
+        $stats = [
+            'transactions' => (clone $statsQuery)->count('s.id'),
+            'revenue' => (clone $statsQuery)->sum('s.total_amount') ?? 0,
+            'units' => DB::table('sale_items as si')
+                ->join('sales as sx', 'sx.id', '=', 'si.sale_id')
+                ->whereIn('sx.id', $filteredIds)
+                ->sum('si.quantity'),
+        ];
 
         // Pagination mempertahankan parameter filter pada URL.
         $transactions = $baseQuery
@@ -449,8 +553,10 @@ class SalesController extends Controller
 
         $baseQuery->orderBy('s.id', 'desc');
 
-        // Query ringkasan tanpa ORDER BY.
-        $statsQuery = (clone $baseQuery)->reorder();
+        // Query ringkasan tanpa ORDER BY, hanya transaksi 'completed'.
+        $statsQuery = (clone $baseQuery)
+            ->reorder()
+            ->where('s.status', 'completed');
 
         $filteredIds = (clone $statsQuery)->select('s.id');
 
@@ -463,7 +569,9 @@ class SalesController extends Controller
                 ->sum('si.quantity'),
         ];
 
-        $totalRows = $stats['transactions'];
+        // Total baris di tabel PDF mencakup semua status (termasuk dibatalkan),
+        // karena daftar detail di bawah juga menampilkan semuanya.
+        $totalRows = (clone $baseQuery)->reorder()->count('s.id');
 
         // Detail PDF dibatasi maksimal 50 transaksi.
         $sales = $baseQuery->limit(50)->get();
@@ -522,9 +630,10 @@ class SalesController extends Controller
 
     public function detail($id)
     {
-        // Ambil informasi utama transaksi beserta nama kasir.
+        // Ambil informasi utama transaksi beserta nama kasir dan data pembatalan.
         $sale = DB::table('sales as s')
             ->join('users as u', 'u.id', '=', 's.created_by')
+            ->leftJoin('users as cu', 'cu.id', '=', 's.cancelled_by')
             ->where('s.id', $id)
             ->select([
                 's.id',
@@ -533,7 +642,10 @@ class SalesController extends Controller
                 's.customer_name',
                 's.status',
                 's.total_amount',
+                's.cancelled_at',
+                's.cancel_reason',
                 'u.name as cashier',
+                'cu.name as cancelled_by_name',
             ])
             ->first();
 

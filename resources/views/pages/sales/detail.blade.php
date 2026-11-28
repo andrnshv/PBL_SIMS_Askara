@@ -11,6 +11,9 @@
     $saleDate = \Carbon\Carbon::parse($sale->sale_date);
 
     $isCompleted = $sale->status === 'completed';
+
+    // Modal terbuka otomatis kalau validasi alasan pembatalan gagal.
+    $openCancelModal = $errors->has('cancel_reason');
 @endphp
 
 <div class="flex h-full flex-col">
@@ -55,29 +58,187 @@
                 </p>
             </div>
 
-            <a
-                href="{{ route('sales.history') }}"
-                class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-            >
-                <svg
-                    class="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+
+                {{-- Tombol batalkan transaksi (hanya untuk transaksi selesai) --}}
+                @if ($isCompleted)
+                    <div x-data="{ open: {{ $openCancelModal ? 'true' : 'false' }} }">
+                        <button
+                            type="button"
+                            @click="open = true"
+                            class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-rose-200 px-4 py-2.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                        >
+                            <svg
+                                class="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M6 18L18 6M6 6l12 12"
+                                />
+                            </svg>
+                            Batalkan Transaksi
+                        </button>
+
+                        {{-- Modal alasan pembatalan --}}
+                        <div
+                            x-show="open"
+                            x-cloak
+                            x-transition.opacity
+                            @keydown.escape.window="open = false"
+                            class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4"
+                        >
+                            <form
+                                method="POST"
+                                action="{{ route('sales.cancel', $sale->id) }}"
+                                @click.outside="open = false"
+                                class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+                            >
+                                @csrf
+
+                                <h3 class="text-base font-bold text-[#0A1E45]">
+                                    Batalkan {{ $sale->invoice_no }}?
+                                </h3>
+
+                                <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                                    Stok semua produk pada transaksi ini akan dikembalikan
+                                    dan transaksi tidak dihitung sebagai pendapatan.
+                                    Tindakan ini tidak dapat dibatalkan.
+                                </p>
+
+                                <label for="cancel_reason"
+                                       class="mt-4 block text-[11px] font-semibold text-slate-600">
+                                    Alasan pembatalan
+                                </label>
+
+                                <textarea
+                                    id="cancel_reason"
+                                    name="cancel_reason"
+                                    rows="3"
+                                    required
+                                    minlength="5"
+                                    maxlength="255"
+                                    placeholder="Contoh: Salah input jumlah barang"
+                                    class="mt-1 w-full rounded-md border border-slate-200 p-3 text-sm text-slate-700 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                                >{{ old('cancel_reason') }}</textarea>
+
+                                @error('cancel_reason')
+                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
+                                @enderror
+
+                                <div class="mt-5 flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        @click="open = false"
+                                        class="rounded-md border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                    >
+                                        Tutup
+                                    </button>
+
+                                    <button
+                                        type="submit"
+                                        class="rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-700"
+                                    >
+                                        Ya, Batalkan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                @endif
+
+                <a
+                    href="{{ route('sales.history') }}"
+                    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                 >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M12 19l-7-7 7-7M5 12h14"
-                    />
-                </svg>
-                Kembali ke Riwayat
-            </a>
+                    <svg
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 19l-7-7 7-7M5 12h14"
+                        />
+                    </svg>
+                    Kembali ke Riwayat
+                </a>
+            </div>
         </div>
     </header>
 
     <main class="flex-1 space-y-5 overflow-y-auto bg-slate-50/70 p-6 md:p-8">
+
+        {{-- Pesan sukses / error --}}
+        @if (session('success'))
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-xs font-medium text-emerald-700">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-700">
+                {{ session('error') }}
+            </div>
+        @endif
+
+        {{-- Informasi pembatalan --}}
+        @if (! $isCompleted)
+            <div class="rounded-xl border border-rose-200 bg-rose-50 p-5">
+                <div class="flex items-start gap-3">
+                    <svg
+                        class="mt-0.5 h-4 w-4 shrink-0 text-rose-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <circle cx="12" cy="12" r="9"/>
+                        <path stroke-linecap="round" d="M12 8v5M12 16h.01"/>
+                    </svg>
+
+                    <div>
+                        <p class="text-sm font-bold text-rose-700">
+                            Transaksi ini telah dibatalkan
+                        </p>
+
+                        <dl class="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
+                            <div>
+                                <dt class="text-[11px] text-rose-400">Dibatalkan oleh</dt>
+                                <dd class="mt-1 font-semibold text-rose-700">
+                                    {{ $sale->cancelled_by_name ?? '-' }}
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt class="text-[11px] text-rose-400">Waktu pembatalan</dt>
+                                <dd class="mt-1 font-semibold text-rose-700">
+                                    @if ($sale->cancelled_at)
+                                        {{ \Carbon\Carbon::parse($sale->cancelled_at)->translatedFormat('d F Y, H:i') }} WIB
+                                    @else
+                                        -
+                                    @endif
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt class="text-[11px] text-rose-400">Alasan</dt>
+                                <dd class="mt-1 font-semibold text-rose-700">
+                                    {{ $sale->cancel_reason ?: '-' }}
+                                </dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         {{-- Informasi utama transaksi --}}
         <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -230,7 +391,7 @@
                         </p>
                     </div>
 
-                    <p class="text-xl font-extrabold text-[#0A1E45]">
+                    <p class="text-xl font-extrabold {{ $isCompleted ? 'text-[#0A1E45]' : 'text-slate-400 line-through' }}">
                         {{ $rupiah($sale->total_amount) }}
                     </p>
                 </div>

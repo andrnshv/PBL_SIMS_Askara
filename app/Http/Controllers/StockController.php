@@ -167,6 +167,10 @@ class StockController extends Controller
         $end = $validated['end'] ?? null;
         $perPage = (int) ($validated['per_page'] ?? 10);
 
+        // Link ke detail penjualan hanya untuk role yang boleh membukanya
+        // (staff_penjualan dan admin); role lain akan mendapat 403.
+        $canViewSales = $request->user()->hasRole('staff_penjualan');
+
         $query = DB::table('stock_movements as sm')
             ->join('product_variants as v', 'v.id', '=', 'sm.variant_id')
             ->join('products as p', 'p.id', '=', 'v.product_id')
@@ -238,7 +242,7 @@ class StockController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $movements = $rows->getCollection()->map(function ($m) {
+        $movements = $rows->getCollection()->map(function ($m) use ($canViewSales) {
             $isAdjustment = str_contains(
                 strtolower($m->movement_type),
                 'adjustment'
@@ -247,6 +251,12 @@ class StockController extends Controller
             $typeLabel = $isAdjustment
                 ? 'penyesuaian'
                 : ($m->qty_change > 0 ? 'masuk' : 'keluar');
+
+            $isSaleMovement = in_array(
+                $m->movement_type,
+                ['sale', 'sale_cancel'],
+                true
+            );
 
             return [
                 'datetime' => \Carbon\Carbon::parse($m->created_at),
@@ -262,12 +272,15 @@ class StockController extends Controller
                 'ref' => match (true) {
                     (bool) $m->receipt_no => $m->receipt_no,
                     (bool) $m->opname_no => $m->opname_no,
+                    $m->movement_type === 'sale_cancel' => 'Batal penjualan #' . $m->reference_id,
+                    $m->movement_type === 'sale' => 'Penjualan #' . $m->reference_id,
                     (bool) $m->reference_type => $m->reference_type . ' #' . $m->reference_id,
                     default => '-',
                 },
                 'ref_url' => match (true) {
                     (bool) $m->receipt_no => route('stock.receipts.show', $m->reference_id),
                     (bool) $m->opname_no => route('stock.opname.show', $m->reference_id),
+                    $isSaleMovement && $canViewSales => route('sales.detail', $m->reference_id),
                     default => null,
                 },
                 'ref_note' => $m->reference_type ?? '-',
@@ -427,6 +440,10 @@ class StockController extends Controller
                     'ref' => match (true) {
                         (bool) $m->receipt_no => $m->receipt_no,
                         (bool) $m->opname_no => $m->opname_no,
+                        $m->movement_type === 'sale_cancel' =>
+                            'Batal penjualan #' . $m->reference_id,
+                        $m->movement_type === 'sale' =>
+                            'Penjualan #' . $m->reference_id,
                         (bool) $m->reference_type =>
                             $m->reference_type . ' #' . $m->reference_id,
                         default => '-',
