@@ -193,6 +193,11 @@ Route::middleware(['auth', 'role:staff_penjualan'])->group(function () {
         ->whereNumber('id')
         ->name('sales.detail');
 
+    // BARU: batalkan transaksi penjualan (void)
+    Route::post('/sales/history/{id}/cancel', [SalesController::class, 'cancel'])
+        ->whereNumber('id')
+        ->name('sales.cancel');
+
     Route::get('/sales/history/export/pdf', [SalesController::class, 'exportPdf'])
         ->name('sales.history.export.pdf');
 });
