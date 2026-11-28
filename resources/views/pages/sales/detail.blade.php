@@ -14,6 +14,12 @@
 
     // Modal terbuka otomatis kalau validasi alasan pembatalan gagal.
     $openCancelModal = $errors->has('cancel_reason');
+
+    // Transaksi lama belum punya rincian pajak, pembulatan, dan pembayaran.
+    $subtotalAmount = $sale->subtotal_amount ?? $sale->total_amount;
+    $taxAmount = (float) ($sale->tax_amount ?? 0);
+    $roundingAmount = (float) ($sale->rounding_amount ?? 0);
+    $taxRate = rtrim(rtrim(number_format((float) ($sale->tax_rate ?? 0), 2, '.', ''), '0'), '.');
 @endphp
 
 <div class="flex h-full flex-col">
@@ -378,22 +384,65 @@
                 </table>
             </div>
 
-            {{-- Total transaksi --}}
+            {{-- Ringkasan pembayaran --}}
             <div class="border-t border-slate-200 bg-slate-50/70 p-5">
-                <div class="ml-auto flex max-w-sm items-center justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500">
-                            Total Pembayaran
-                        </p>
+                <div class="ml-auto max-w-sm space-y-2">
 
-                        <p class="mt-1 text-[10px] text-slate-400">
-                            {{ $items->count() }} jenis varian produk
+                    <div class="flex items-center justify-between gap-4 text-xs">
+                        <span class="text-slate-500">Subtotal</span>
+                        <span class="font-semibold text-slate-700">
+                            {{ $rupiah($subtotalAmount) }}
+                        </span>
+                    </div>
+
+                    @if ($taxAmount > 0)
+                        <div class="flex items-center justify-between gap-4 text-xs">
+                            <span class="text-slate-500">Pajak ({{ $taxRate }}%)</span>
+                            <span class="font-semibold text-slate-700">
+                                {{ $rupiah($taxAmount) }}
+                            </span>
+                        </div>
+                    @endif
+
+                    @if ($roundingAmount != 0)
+                        <div class="flex items-center justify-between gap-4 text-xs">
+                            <span class="text-slate-500">Pembulatan</span>
+                            <span class="font-semibold text-slate-700">
+                                {{ $roundingAmount > 0 ? '+' : '−' }}{{ $rupiah(abs($roundingAmount)) }}
+                            </span>
+                        </div>
+                    @endif
+
+                    <div class="flex items-center justify-between gap-4 border-t border-slate-200 pt-3">
+                        <div>
+                            <p class="text-xs font-medium text-slate-500">
+                                Total Pembayaran
+                            </p>
+
+                            <p class="mt-1 text-[10px] text-slate-400">
+                                {{ $items->count() }} jenis varian produk
+                            </p>
+                        </div>
+
+                        <p class="text-xl font-extrabold {{ $isCompleted ? 'text-[#0A1E45]' : 'text-slate-400 line-through' }}">
+                            {{ $rupiah($sale->total_amount) }}
                         </p>
                     </div>
 
-                    <p class="text-xl font-extrabold {{ $isCompleted ? 'text-[#0A1E45]' : 'text-slate-400 line-through' }}">
-                        {{ $rupiah($sale->total_amount) }}
-                    </p>
+                    <div class="flex items-center justify-between gap-4 border-t border-slate-200 pt-3 text-xs">
+                        <span class="text-slate-500">Uang Diterima</span>
+                        <span class="font-semibold text-slate-700">
+                            {{ $sale->amount_paid !== null ? $rupiah($sale->amount_paid) : '-' }}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4 text-xs">
+                        <span class="text-slate-500">Kembalian</span>
+                        <span class="font-semibold text-emerald-600">
+                            {{ $sale->change_amount !== null ? $rupiah($sale->change_amount) : '-' }}
+                        </span>
+                    </div>
+
                 </div>
             </div>
 
