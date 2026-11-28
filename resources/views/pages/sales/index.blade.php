@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div x-data="salesPage(@js($products))" class="space-y-6">
+<div x-data="salesPage(@js($products), @js($taxRate), @js($rounding))" class="space-y-6">
 
     {{-- Header --}}
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -414,21 +414,50 @@
                         ></span>
                     </div>
 
-                    <div class="flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
-                        <span class="font-semibold text-gray-800 dark:text-white">
-                            Subtotal
-                        </span>
-                        <span
-                            class="text-xl font-bold text-[#0A1E45] dark:text-white"
-                            x-text="rupiah(subtotal)"
-                        ></span>
+                    <div class="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-700">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
+                            <span
+                                class="font-medium text-gray-800 dark:text-white"
+                                x-text="rupiah(subtotal)"
+                            ></span>
+                        </div>
+
+                        <div x-show="taxRate > 0" class="flex justify-between text-sm">
+                            <span
+                                class="text-gray-500 dark:text-gray-400"
+                                x-text="'Pajak (' + taxRate + '%)'"
+                            ></span>
+                            <span
+                                class="font-medium text-gray-800 dark:text-white"
+                                x-text="rupiah(taxAmount)"
+                            ></span>
+                        </div>
+
+                        <div x-show="roundingAmount !== 0" class="flex justify-between text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Pembulatan</span>
+                            <span
+                                class="font-medium text-gray-800 dark:text-white"
+                                x-text="(roundingAmount > 0 ? '+' : '−') + rupiah(Math.abs(roundingAmount))"
+                            ></span>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="font-semibold text-gray-800 dark:text-white">
+                                Total
+                            </span>
+                            <span
+                                class="text-xl font-bold text-[#0A1E45] dark:text-white"
+                                x-text="rupiah(total)"
+                            ></span>
+                        </div>
                     </div>
 
                     {{-- Form untuk menyimpan transaksi ke database --}}
                     <form
                         method="POST"
                         action="{{ route('sales.store') }}"
-                        @submit="if (cart.length === 0) $event.preventDefault()"
+                        @submit="if (!canSubmit) $event.preventDefault()"
                     >
                         @csrf
 
@@ -451,6 +480,74 @@
                             >
                         </div>
 
+                        {{-- Pembayaran --}}
+                        <div class="mb-4 space-y-3">
+                            <div>
+                                <label
+                                    for="amount_paid"
+                                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
+                                    Uang diterima
+                                </label>
+
+                                <div class="relative">
+                                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                                        Rp
+                                    </span>
+                                    <input
+                                        id="amount_paid"
+                                        name="amount_paid"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        inputmode="numeric"
+                                        x-model="paid"
+                                        placeholder="0"
+                                        class="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+                                    >
+                                </div>
+
+                                {{-- Tombol nominal cepat --}}
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        @click="payExact()"
+                                        :disabled="cart.length === 0"
+                                        class="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-blue-300 hover:text-blue-700 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
+                                    >
+                                        Uang pas
+                                    </button>
+
+                                    <template x-for="nominal in [50000, 100000, 200000]" :key="nominal">
+                                        <button
+                                            type="button"
+                                            @click="paid = nominal"
+                                            class="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-blue-300 hover:text-blue-700 dark:border-gray-700 dark:text-gray-300"
+                                            x-text="rupiah(nominal)"
+                                        ></button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between rounded-xl bg-white px-4 py-3 dark:bg-gray-900">
+                                <span
+                                    class="text-sm font-medium"
+                                    :class="shortage > 0
+                                        ? 'text-red-600 dark:text-red-400'
+                                        : 'text-gray-700 dark:text-gray-300'"
+                                    x-text="shortage > 0 ? 'Kurang' : 'Kembalian'"
+                                ></span>
+
+                                <span
+                                    class="text-lg font-bold"
+                                    :class="shortage > 0
+                                        ? 'text-red-600 dark:text-red-400'
+                                        : 'text-green-600 dark:text-green-400'"
+                                    x-text="rupiah(shortage > 0 ? shortage : change)"
+                                ></span>
+                            </div>
+                        </div>
+
                         {{-- Kirim ID varian dan kuantitas --}}
                         <template x-for="(item, index) in cart" :key="item.id">
                             <div>
@@ -470,14 +567,14 @@
 
                         <button
                             type="submit"
-                            :disabled="cart.length === 0"
+                            :disabled="!canSubmit"
                             class="w-full rounded-xl bg-[#0A1E45] px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
                         >
                             Proses Transaksi
                         </button>
 
                         <p class="mt-3 text-center text-xs text-gray-400">
-                            Harga dan stok akan divalidasi kembali oleh server.
+                            Harga, pajak, dan stok akan divalidasi kembali oleh server.
                         </p>
                     </form>
                 </div>
@@ -489,12 +586,16 @@
 
 @push('scripts')
 <script>
-    function salesPage(products) {
+    function salesPage(products, taxRate = 0, rounding = {}) {
         return {
             products: products,
+            taxRate: Number(taxRate) || 0,
+            roundingStep: Number(rounding.step) || 0,
+            roundingMode: rounding.mode || 'nearest',
             search: '',
             category: 'Semua',
             cart: [],
+            paid: '',
 
             get categories() {
                 return [
@@ -538,6 +639,47 @@
                 );
             },
 
+            // Pajak dibulatkan ke rupiah penuh, sama seperti di server.
+            get taxAmount() {
+                return Math.round(this.subtotal * this.taxRate / 100);
+            },
+
+            get beforeRounding() {
+                return this.subtotal + this.taxAmount;
+            },
+
+            // Selisih pembulatan total ke kelipatan tertentu (bisa negatif).
+            get roundingAmount() {
+                if (this.roundingStep <= 0 || this.cart.length === 0) return 0;
+
+                const units = Math.round((this.beforeRounding / this.roundingStep) * 1e6) / 1e6;
+                const rounded = this.roundingMode === 'up' ? Math.ceil(units) : Math.round(units);
+
+                return rounded * this.roundingStep - this.beforeRounding;
+            },
+
+            get total() {
+                return this.beforeRounding + this.roundingAmount;
+            },
+
+            get paidAmount() {
+                return Number(this.paid) || 0;
+            },
+
+            get change() {
+                return Math.max(this.paidAmount - this.total, 0);
+            },
+
+            get shortage() {
+                return this.cart.length > 0
+                    ? Math.max(this.total - this.paidAmount, 0)
+                    : 0;
+            },
+
+            get canSubmit() {
+                return this.cart.length > 0 && this.paidAmount >= this.total;
+            },
+
             status(product) {
                 if (product.stock <= 0) return 'out';
                 if (product.stock <= product.min) return 'low';
@@ -566,6 +708,11 @@
 
             clearCart() {
                 this.cart = [];
+                this.paid = '';
+            },
+
+            payExact() {
+                this.paid = this.total;
             },
 
             inc(item) {

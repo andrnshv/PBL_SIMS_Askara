@@ -56,6 +56,11 @@ class SalesController extends Controller
         return view('pages.sales.index', [
             'title' => 'Transaksi Penjualan',
             'products' => $products,
+            'taxRate' => (float) config('sales.tax_rate', 0),
+            'rounding' => [
+                'step' => (int) config('sales.rounding_step', 0),
+                'mode' => config('sales.rounding_mode', 'nearest'),
+            ],
         ]);
     }
 
@@ -66,6 +71,7 @@ class SalesController extends Controller
     {
         $validated = $request->validate([
             'customer_name' => ['nullable', 'string', 'max:255'],
+            'amount_paid' => ['required', 'numeric', 'min:0', 'max:999999999999'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.variant_id' => [
                 'required',
@@ -79,6 +85,9 @@ class SalesController extends Controller
                 'min:1',
             ],
         ], [
+            'amount_paid.required' => 'Uang diterima wajib diisi.',
+            'amount_paid.numeric' => 'Uang diterima harus berupa angka.',
+            'amount_paid.min' => 'Uang diterima tidak boleh negatif.',
             'items.required' => 'Keranjang penjualan masih kosong.',
             'items.min' => 'Tambahkan minimal satu produk.',
             'items.*.variant_id.required' => 'Varian produk tidak valid.',
@@ -124,7 +133,7 @@ class SalesController extends Controller
                 ]);
             }
 
-            $totalAmount = 0;
+            $subtotalAmount = 0;
             $preparedItems = [];
 
             // Validasi stok dan hitung harga di server.
@@ -160,8 +169,37 @@ class SalesController extends Controller
                     'stock_after' => (int) $variant->current_stock - $quantity,
                 ];
 
-                $totalAmount += $subtotal;
+                $subtotalAmount += $subtotal;
             }
+
+            // Pajak, pembulatan, total, dan kembalian dihitung di server.
+            $subtotalAmount = round($subtotalAmount, 2);
+            $taxRate = (float) config('sales.tax_rate', 0);
+            $taxAmount = round($subtotalAmount * $taxRate / 100, 0);
+            $beforeRounding = round($subtotalAmount + $taxAmount, 2);
+
+            $step = (int) config('sales.rounding_step', 0);
+
+            if ($step > 0) {
+                $units = round($beforeRounding / $step, 6);
+                $units = config('sales.rounding_mode') === 'up' ? ceil($units) : round($units);
+                $totalAmount = round($units * $step, 2);
+            } else {
+                $totalAmount = $beforeRounding;
+            }
+
+            $roundingAmount = round($totalAmount - $beforeRounding, 2);
+
+            $amountPaid = round((float) $validated['amount_paid'], 2);
+
+            if ($amountPaid < $totalAmount) {
+                throw ValidationException::withMessages([
+                    'amount_paid' => 'Uang diterima kurang dari total (Rp'
+                        . number_format($totalAmount, 0, ',', '.') . ').',
+                ]);
+            }
+
+            $changeAmount = round($amountPaid - $totalAmount, 2);
 
             // Nomor invoice unik; kolom invoice_no memiliki unique constraint.
             $invoiceNo = 'INV-' . now()->format('YmdHis')
@@ -174,7 +212,13 @@ class SalesController extends Controller
                 'sale_date' => $now,
                 'customer_name' => $validated['customer_name'] ?? null,
                 'status' => 'completed',
+                'subtotal_amount' => $subtotalAmount,
+                'tax_rate' => $taxRate,
+                'tax_amount' => $taxAmount,
+                'rounding_amount' => $roundingAmount,
                 'total_amount' => $totalAmount,
+                'amount_paid' => $amountPaid,
+                'change_amount' => $changeAmount,
                 'created_by' => $userId,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -641,7 +685,13 @@ class SalesController extends Controller
                 's.sale_date',
                 's.customer_name',
                 's.status',
+                's.subtotal_amount',
+                's.tax_rate',
+                's.tax_amount',
+                's.rounding_amount',
                 's.total_amount',
+                's.amount_paid',
+                's.change_amount',
                 's.cancelled_at',
                 's.cancel_reason',
                 'u.name as cashier',
